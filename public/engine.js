@@ -1298,4 +1298,116 @@ function renderVignette() {
 }
 renderVignette();
 
+// ── Procedural Ambient Audio ──
+// Synthesized via Web Audio API - no audio files needed.
+// Activates on first user interaction (browser autoplay policy).
+let audioCtx = null;
+let audioStarted = false;
+
+function initAudio() {
+  if (audioStarted) return;
+  audioStarted = true;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+  // Master volume
+  const master = audioCtx.createGain();
+  master.gain.value = 0.15;
+  master.connect(audioCtx.destination);
+
+  // Wind: filtered noise, always present but volume varies
+  const windNoise = audioCtx.createBufferSource();
+  const noiseLen = audioCtx.sampleRate * 2;
+  const noiseBuf = audioCtx.createBuffer(1, noiseLen, audioCtx.sampleRate);
+  const noiseData = noiseBuf.getChannelData(0);
+  for (let i = 0; i < noiseLen; i++) noiseData[i] = Math.random() * 2 - 1;
+  windNoise.buffer = noiseBuf;
+  windNoise.loop = true;
+  const windFilter = audioCtx.createBiquadFilter();
+  windFilter.type = 'lowpass';
+  windFilter.frequency.value = 400;
+  windFilter.Q.value = 0.5;
+  const windGain = audioCtx.createGain();
+  windGain.gain.value = 0.08;
+  windNoise.connect(windFilter).connect(windGain).connect(master);
+  windNoise.start();
+
+  // Cricket scheduler: plays short chirps at night
+  function scheduleCricket() {
+    const amb = getAmbient(simTime);
+    const delay = amb < 0.3 ? rand(0.3, 1.5) : rand(5, 15); // frequent at night
+    setTimeout(() => {
+      if (!audioCtx || audioCtx.state === 'closed') return;
+      if (getAmbient(simTime) < 0.35) {
+        const osc = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        osc.frequency.value = rand(4000, 5500);
+        osc.type = 'sine';
+        g.gain.setValueAtTime(0, audioCtx.currentTime);
+        g.gain.linearRampToValueAtTime(0.03, audioCtx.currentTime + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+        osc.connect(g).connect(master);
+        osc.start(audioCtx.currentTime);
+        osc.stop(audioCtx.currentTime + 0.1);
+        // Double chirp
+        if (Math.random() < 0.6) {
+          const osc2 = audioCtx.createOscillator();
+          const g2 = audioCtx.createGain();
+          osc2.frequency.value = osc.frequency.value * rand(0.98, 1.02);
+          osc2.type = 'sine';
+          g2.gain.setValueAtTime(0, audioCtx.currentTime + 0.12);
+          g2.gain.linearRampToValueAtTime(0.025, audioCtx.currentTime + 0.13);
+          g2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+          osc2.connect(g2).connect(master);
+          osc2.start(audioCtx.currentTime + 0.12);
+          osc2.stop(audioCtx.currentTime + 0.22);
+        }
+      }
+      scheduleCricket();
+    }, delay * 1000);
+  }
+
+  // Bird call scheduler: plays at dawn/day
+  function scheduleBird() {
+    const amb = getAmbient(simTime);
+    const isDawn = simTime > 5 && simTime < 8;
+    const delay = isDawn ? rand(0.5, 2) : amb > 0.5 ? rand(3, 10) : rand(15, 30);
+    setTimeout(() => {
+      if (!audioCtx || audioCtx.state === 'closed') return;
+      if (getAmbient(simTime) > 0.3) {
+        const osc = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        const baseFreq = rand(1800, 3200);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(baseFreq, audioCtx.currentTime);
+        osc.frequency.linearRampToValueAtTime(baseFreq * rand(1.1, 1.5), audioCtx.currentTime + 0.1);
+        osc.frequency.linearRampToValueAtTime(baseFreq * rand(0.8, 1.0), audioCtx.currentTime + 0.2);
+        g.gain.setValueAtTime(0, audioCtx.currentTime);
+        g.gain.linearRampToValueAtTime(0.02, audioCtx.currentTime + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
+        osc.connect(g).connect(master);
+        osc.start(audioCtx.currentTime);
+        osc.stop(audioCtx.currentTime + 0.3);
+      }
+      scheduleBird();
+    }, delay * 1000);
+  }
+
+  // Update wind volume based on time of day
+  setInterval(() => {
+    if (!audioCtx || audioCtx.state === 'closed') return;
+    const amb = getAmbient(simTime);
+    // Wind louder during day, quieter at night
+    windGain.gain.linearRampToValueAtTime(0.03 + amb * 0.06, audioCtx.currentTime + 1);
+    windFilter.frequency.linearRampToValueAtTime(250 + amb * 300, audioCtx.currentTime + 1);
+  }, 2000);
+
+  scheduleCricket();
+  scheduleBird();
+}
+
+// Start audio on first user interaction
+['click', 'keydown', 'touchstart'].forEach(ev =>
+  document.addEventListener(ev, () => initAudio(), { once: false })
+);
+
 render();
