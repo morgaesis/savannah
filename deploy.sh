@@ -15,8 +15,8 @@ echo "Syncing files..."
 $SCP public/engine.js public/index.html $VM_USER@$VM_HOST:~/public/
 $SCP src/server.ts $VM_USER@$VM_HOST:~/src/
 
-echo "Fixing port..."
-$SSH "sed -i 's/const PORT = 4680/const PORT = 80/' ~/src/server.ts"
+echo "Ensuring port 4680 (traefik proxies 80/443 -> 4680)..."
+$SSH "sed -i 's/const PORT = 80/const PORT = 4680/' ~/src/server.ts 2>/dev/null; grep 'const PORT' ~/src/server.ts"
 
 echo "Restarting service..."
 $SSH "echo '$VM_PASS' | sudo -S systemctl restart africa"
