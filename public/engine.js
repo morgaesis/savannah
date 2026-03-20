@@ -3,8 +3,30 @@
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
-const PW = 384, PH = 216;
+
+// Dynamic viewport: fills the window at a consistent pixel density (~3.3x scale)
+// A 1920x1080 screen → 384x216 pixel art. Wider screen shows more world.
+const PIXEL_SCALE = 5; // screen pixels per game pixel
+let PW = Math.max(256, Math.floor(window.innerWidth / PIXEL_SCALE));
+let PH = Math.max(144, Math.floor(window.innerHeight / PIXEL_SCALE));
 canvas.width = PW; canvas.height = PH;
+
+function resizeCanvas() {
+  const newW = Math.max(256, Math.floor(window.innerWidth / PIXEL_SCALE));
+  const newH = Math.max(144, Math.floor(window.innerHeight / PIXEL_SCALE));
+  if (newW !== PW || newH !== PH) {
+    PW = newW; PH = newH;
+    canvas.width = PW; canvas.height = PH;
+    // Re-render background and vignette for new size
+    bgCanvas.width = PW; bgCanvas.height = PH;
+    vigCanvas.width = PW; vigCanvas.height = PH;
+    renderVignette();
+    bgDirty = true;
+    // Re-generate star positions for new sky area
+    starPoints = jitteredGridPoints(0, 0, PW, Math.max(1, HORIZON - VP.y), 6, 271, 0.55);
+  }
+}
+window.addEventListener('resize', resizeCanvas);
 
 // ── Configuration (mutable at runtime via config menu) ──
 const CFG = {
@@ -1097,8 +1119,10 @@ function render(){
 // Pre-rendered window vignette overlay
 const vigCanvas = document.createElement("canvas");
 vigCanvas.width = PW; vigCanvas.height = PH;
-(function() {
+function renderVignette() {
+  vigCanvas.width = PW; vigCanvas.height = PH;
   const vc = vigCanvas.getContext("2d");
+  vc.clearRect(0, 0, PW, PH);
   for (let i = 0; i < 18; i++) {
     const a = 0.4 * (1 - i/18) * (1 - i/18);
     vc.fillStyle = `rgba(8,5,2,${a})`;
@@ -1118,8 +1142,8 @@ vigCanvas.width = PW; vigCanvas.height = PH;
       vc.fillRect(PW-1-cx, PH-1-cy, 1, 1);
     }
   }
-  // Warm sill at bottom
   for (let i = 0; i < 5; i++) { vc.fillStyle = `rgba(50,35,18,${0.06*(1-i/5)})`; vc.fillRect(0, PH-1-i, PW, 1); }
-})();
+}
+renderVignette();
 
 render();
