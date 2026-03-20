@@ -524,7 +524,21 @@ function renderBg() {
       bgCtx.fillRect(0, py, PW, 1);
     }
   }
-  for(const tr of trees){const x=worldToScreenX(tr.x),y=Math.floor(tr.y-VP.y);if(x>-30&&x<PW+30){bgCtx.fillStyle=`rgba(20,15,10,${0.12*amb})`;bgCtx.fillRect(x-tr.s*10,y-1,tr.s*10,2);}}
+  // Tree shadows: direction based on sun or moon
+  const lightSrc = sun || getMoonPos(t);
+  const shadowDir = lightSrc ? clamp(Math.sign(VP.x + PW/2 - lightSrc.x), -1, 1) : -1;
+  const shadowAlpha = sun ? 0.12 * amb : (lightSrc ? 0.035 : 0);
+  if (shadowAlpha > 0.005) {
+    for (const tr of trees) {
+      const x = worldToScreenX(tr.x), y = Math.floor(tr.y - VP.y);
+      if (x > -30 && x < PW + 30) {
+        bgCtx.fillStyle = `rgba(20,15,10,${shadowAlpha})`;
+        const sLen = tr.s * 10;
+        const sOff = shadowDir < 0 ? -sLen : 0;
+        bgCtx.fillRect(x + sOff, y - 1, sLen, 2);
+      }
+    }
+  }
   for(const s of shrubs){const x=worldToScreenX(s.x),y=Math.floor(s.y-VP.y);if(x>-10&&x<PW+10){bgCtx.fillStyle=`rgba(20,15,10,${0.08*amb})`;bgCtx.fillRect(x-s.s*3,y+1,s.s*3,1);}}
   for(let i=0;i<16;i++){const a=0.35*(1-i/16)*(1-i/16);bgCtx.fillStyle=`rgba(8,6,3,${a})`;bgCtx.fillRect(0,i,PW,1);bgCtx.fillRect(0,PH-1-i,PW,1);bgCtx.fillRect(i,0,1,PH);bgCtx.fillRect(PW-1-i,0,1,PH);}
   lastBgTime=t;lastBgVpx=VP.x;bgDirty=false;
@@ -534,7 +548,36 @@ function renderBg() {
 function drawSunFG() { const t=simTime,sun=getSunPos(t);if(!sun)return;const sc=getSunColor(t),amb=getAmbient(t),hS=HORIZON-VP.y,sx=worldToScreenX(sun.x),sy=Math.floor(sun.y-VP.y);if(sy>=hS||sy<-40)return;const R=11;for(let r=R+20;r>R;r--){const a=0.08*(1-(r-R)/20)*amb;ctx.fillStyle=`rgba(${sc[0]},${sc[1]},${Math.floor(sc[2]*0.7)},${a})`;for(let dy=-r;dy<=r;dy++){const hw=Math.floor(Math.sqrt(r*r-dy*dy)),py=sy+dy;if(py>=0&&py<hS)ctx.fillRect(sx-hw,py,hw*2,1);}}ctx.fillStyle=rgb(sc);for(let dy=-R;dy<=R;dy++)for(let dx=-R;dx<=R;dx++)if(dx*dx+dy*dy<=R*R&&sy+dy>=0&&sy+dy<hS)ctx.fillRect(sx+dx,sy+dy,1,1);ctx.fillStyle=rgb([255,250,230]);for(let dy=-3;dy<=3;dy++)for(let dx=-3;dx<=3;dx++)if(dx*dx+dy*dy<=9&&sy+dy>=0&&sy+dy<hS)ctx.fillRect(sx+dx,sy+dy,1,1); }
 
 // ── Dynamic trees/shrubs ──
-function drawTreeDyn(t){const x=worldToScreenX(t.x),y=Math.floor(t.y-VP.y);if(x<-30||x>PW+30||y<-30||y>PH+30)return;const s=t.s,a=getAmbient(simTime);ctx.fillStyle=rgb([Math.round(55*a),Math.round(38*a),Math.round(22*a)]);ctx.fillRect(x-1,y-s*5,3,s*5);const cw=s*5,ch=s*2,cy=y-s*5;ctx.fillStyle=rgb([Math.round(30*a),Math.round(42*a),Math.round(18*a)]);ctx.fillRect(x-cw,cy-1,cw*2+1,2);ctx.fillRect(x-cw+1,cy+1,cw*2-1,1);ctx.fillStyle=rgb([Math.round(38*a),Math.round(52*a),Math.round(24*a)]);ctx.fillRect(x-cw+1,cy-ch,cw*2-1,ch);ctx.fillRect(x-cw-1,cy-Math.floor(ch*0.6),cw*2+3,Math.floor(ch*0.4));ctx.fillStyle=rgb([Math.round(52*a),Math.round(65*a),Math.round(32*a)]);ctx.fillRect(x-cw+2,cy-ch-1,cw*2-3,1);if(getSunPos(simTime)){ctx.fillStyle=`rgba(190,150,60,${0.12*a})`;ctx.fillRect(x+1,cy-ch,cw-1,ch);}}
+function drawTreeDyn(t) {
+  const x = worldToScreenX(t.x), y = Math.floor(t.y - VP.y);
+  if (x < -30 || x > PW + 30 || y < -30 || y > PH + 30) return;
+  const s = t.s, a = getAmbient(simTime);
+
+  // Canopy sway: unique per tree, trunk stays fixed
+  const seed = Math.floor(t.x * 7 + t.y * 13);
+  const swaySpeed = 0.008 + (seed % 100) / 100 * 0.005;
+  const sway = Math.round(Math.sin(logicTick * swaySpeed + seed * 0.1) * 0.8);
+
+  // Trunk
+  ctx.fillStyle = rgb([Math.round(55*a), Math.round(38*a), Math.round(22*a)]);
+  ctx.fillRect(x - 1, y - s*5, 3, s*5);
+
+  // Canopy (shifted by sway)
+  const cx = x + sway;
+  const cw = s*5, ch = s*2, cy = y - s*5;
+  ctx.fillStyle = rgb([Math.round(30*a), Math.round(42*a), Math.round(18*a)]);
+  ctx.fillRect(cx - cw, cy - 1, cw*2 + 1, 2);
+  ctx.fillRect(cx - cw + 1, cy + 1, cw*2 - 1, 1);
+  ctx.fillStyle = rgb([Math.round(38*a), Math.round(52*a), Math.round(24*a)]);
+  ctx.fillRect(cx - cw + 1, cy - ch, cw*2 - 1, ch);
+  ctx.fillRect(cx - cw - 1, cy - Math.floor(ch*0.6), cw*2 + 3, Math.floor(ch*0.4));
+  ctx.fillStyle = rgb([Math.round(52*a), Math.round(65*a), Math.round(32*a)]);
+  ctx.fillRect(cx - cw + 2, cy - ch - 1, cw*2 - 3, 1);
+  if (getSunPos(simTime)) {
+    ctx.fillStyle = `rgba(190,150,60,${0.12*a})`;
+    ctx.fillRect(cx + 1, cy - ch, cw - 1, ch);
+  }
+}
 function drawShrubDyn(s){const x=worldToScreenX(s.x),y=Math.floor(s.y-VP.y);if(x<-10||x>PW+10||y<-10||y>PH+10)return;const sz=s.s,a=getAmbient(simTime);ctx.fillStyle=rgb([Math.round(42*a),Math.round(55*a),Math.round(22*a)]);ctx.fillRect(x-sz,y-sz,sz*2+1,sz+1);ctx.fillStyle=rgb([Math.round(55*a),Math.round(68*a),Math.round(32*a)]);ctx.fillRect(x-sz+1,y-sz-1,sz*2-1,1);}
 
 // ── Water, clouds, particles, effects ──
@@ -559,7 +602,47 @@ function spawnDustBurst(x,y,count,spread){for(let i=0;i<count;i++)spawnParticle(
 function spawnSplash(x,y){for(let i=0;i<4;i++)spawnParticle('splash',x+rand(-3,3),y+rand(-2,0),rand(-0.08,0.08),rand(-0.15,-0.05),randInt(15,30),rand(1,2),[100,140,180]);}
 function birdScatterEffect(x,y){for(let i=0;i<6;i++)spawnParticle('debris',x+rand(-4,4),y+rand(-1,1),rand(-0.2,0.2),rand(-0.15,-0.05),randInt(10,25),rand(1,1.5),[70,65,50]);}
 function updateParticles(al){const a=getAmbient(simTime);for(const an of al){if(!an.alive||an.brain.flying)continue;const running=an.state===STATE.FLEE||an.state===STATE.CHASE;if(running&&an.frame%4===0){const cnt=an.type==='elephant'?3:1;for(let i=0;i<cnt;i++)spawnParticle('dust',an.x-an.vx*2+rand(-3,3),an.y+rand(0,2),-an.vx*0.15+rand(-0.12,0.12),rand(-0.1,-0.02),randInt(30,60),rand(2,4),[140,120,80]);}else if(Math.hypot(an.vx,an.vy)>an.brain.speed*0.4&&an.frame%15===0)spawnParticle('dust',an.x-an.vx*2+rand(-2,2),an.y+rand(0,1),rand(-0.05,0.05),rand(-0.05,-0.01),randInt(15,35),rand(1,2),[130,115,75]);if(an.state===STATE.DRINK&&an.frame%50===0)spawnSplash(an.x,an.y);if(an.state===STATE.GRAZE&&an.frame%80===0)spawnParticle('debris',an.x+rand(-2,2),an.y-2,rand(-0.04,0.04),rand(-0.06,-0.02),randInt(10,20),1,[80,90,35]);}for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.x+=p.vx;p.y+=p.vy;p.vy+=0.002;p.vx*=0.96;p.vy*=0.97;p.life--;if(p.life<=0){particles.splice(i,1);continue;}const sx=worldToScreenX(p.x),sy=Math.floor(p.y-VP.y);if(sx<-5||sx>=PW+5||sy<-5||sy>=PH+5)continue;const fade=p.life/p.maxLife,al2=fade*(p.type==='dust'?0.35:p.type==='splash'?0.5:0.3)*a,s=Math.max(1,Math.ceil(p.size*(0.5+fade*0.5)));ctx.fillStyle=`rgba(${p.color[0]},${p.color[1]},${p.color[2]},${al2})`;ctx.fillRect(sx,sy,s,s);if(p.type==='dust'&&s>=2&&fade>0.5){ctx.fillStyle=`rgba(${Math.min(255,p.color[0]+30)},${Math.min(255,p.color[1]+25)},${Math.min(255,p.color[2]+15)},${al2*0.5})`;ctx.fillRect(sx,sy,1,1);}}if(particles.length>150)particles.splice(0,particles.length-150);}
-function drawShadow(an){if(!an.alive||an.brain.flying)return;const sx=worldToScreenX(an.x),sy=Math.floor(an.y-VP.y);if(sx<-20||sx>PW+20||sy<-20||sy>PH+20)return;const a=getAmbient(simTime);if(a<0.2)return;const sun=getSunPos(simTime);let sdx=-8;if(sun)sdx=clamp(Math.round(wrapDeltaX(an.x-sun.x)*0.08),-15,15);const hSy=HORIZON-VP.y,dT=sy>hSy?(sy-hSy)/Math.max(1,PH-hSy):0,sc=0.85+dT*0.25,bL=an.type==='elephant'?14:an.type==='giraffe'?10:an.type==='lion'?10:7,len=Math.round(bL*sc),sd=Math.round(sdx*sc);ctx.fillStyle=`rgba(20,15,10,${0.1*a})`;ctx.fillRect(sx+Math.min(0,sd),sy+1,Math.abs(sd)+len,1);if(an.type==='elephant'||an.type==='giraffe')ctx.fillRect(sx+Math.min(0,sd)+2,sy+2,Math.abs(sd)+len-4,1);}
+// Moon position (opposite side of sun arc)
+function getMoonPos(t) {
+  const mp = (t < 12) ? (t + 12) : (t - 12);
+  const ma = (mp - 6) / 12 * Math.PI;
+  if (ma <= 0 || ma >= Math.PI) return null;
+  return { x: WORLD_W * 0.15 + (WORLD_W * 0.7) * ((mp - 6) / 12), y: HORIZON - Math.sin(ma) * 55 };
+}
+
+function drawShadow(an) {
+  if (!an.alive || an.brain.flying) return;
+  const sx = worldToScreenX(an.x), sy = Math.floor(an.y - VP.y);
+  if (sx < -20 || sx > PW + 20 || sy < -20 || sy > PH + 20) return;
+  const a = getAmbient(simTime);
+
+  // Sun shadows (daytime) or moon shadows (nighttime)
+  const sun = getSunPos(simTime);
+  const moon = !sun ? getMoonPos(simTime) : null;
+  let sdx = -8;
+  let shadowAlpha;
+  if (sun) {
+    sdx = clamp(Math.round(wrapDeltaX(an.x - sun.x) * 0.08), -15, 15);
+    shadowAlpha = 0.1 * a;
+  } else if (moon) {
+    sdx = clamp(Math.round(wrapDeltaX(an.x - moon.x) * 0.06), -12, 12);
+    shadowAlpha = 0.04; // faint moon shadow
+  } else {
+    return; // no light source, no shadow
+  }
+
+  const hSy = HORIZON - VP.y;
+  const dT = sy > hSy ? (sy - hSy) / Math.max(1, PH - hSy) : 0;
+  const sc = 0.85 + dT * 0.25;
+  const bL = an.type === 'elephant' ? 14 : an.type === 'giraffe' ? 10 : an.type === 'lion' ? 10 : 7;
+  const len = Math.round(bL * sc);
+  const sd = Math.round(sdx * sc);
+  ctx.fillStyle = `rgba(15,12,8,${shadowAlpha})`;
+  ctx.fillRect(sx + Math.min(0, sd), sy + 1, Math.abs(sd) + len, 1);
+  if (an.type === 'elephant' || an.type === 'giraffe') {
+    ctx.fillRect(sx + Math.min(0, sd) + 2, sy + 2, Math.abs(sd) + len - 4, 1);
+  }
+}
 
 const fireflies=[];for(let i=0;i<12;i++)fireflies.push({x:rand(50,PW-50),y:rand(HORIZON-VP.y+10,PH-20),phase:rand(0,Math.PI*2),speed:rand(0.3,0.8),driftX:rand(-0.05,0.05),driftY:rand(-0.03,0.03)});
 function drawFireflies(tk){const a=getAmbient(simTime);if(a>0.4||a<0.08)return;const int=1-Math.abs(a-0.2)/0.2;for(const f of fireflies){f.x+=f.driftX+Math.sin(tk*0.01+f.phase)*0.08;f.y+=f.driftY+Math.cos(tk*0.008+f.phase)*0.05;if(f.x<10)f.x=PW-10;if(f.x>PW-10)f.x=10;if(f.y<HORIZON-VP.y+5)f.y=PH-20;if(f.y>PH-15)f.y=HORIZON-VP.y+10;const glow=(Math.sin(tk*f.speed*0.1+f.phase)+1)*0.5;if(glow<0.3)continue;const al=glow*int*0.7;ctx.fillStyle=`rgba(180,220,80,${al*0.3})`;ctx.fillRect(Math.floor(f.x)-1,Math.floor(f.y)-1,3,3);ctx.fillStyle=`rgba(220,255,120,${al})`;ctx.fillRect(Math.floor(f.x),Math.floor(f.y),1,1);}}
