@@ -719,6 +719,77 @@ const dustDevil={active:false,x:0,y:0,vx:0,life:0,maxLife:0,size:0};
 function updateDustDevil(tk){if(!dustDevil.active){if(CFG.dustDevilFreq<=0)return;if(getAmbient(simTime)>0.5&&pcgHash(tk&0x3FF,0,5555)<CFG.dustDevilFreq){dustDevil.active=true;dustDevil.x=wrapX(VP.x-40);dustDevil.y=HORIZON+rand(20,70);dustDevil.vx=rand(0.3,0.6);dustDevil.size=rand(4,8);dustDevil.maxLife=randInt(300,600);dustDevil.life=dustDevil.maxLife;showNarration('A dust devil crosses the plain');}return;}dustDevil.x=wrapX(dustDevil.x+dustDevil.vx);dustDevil.y+=(pcgHash(tk,1,6666)-0.5)*0.3;dustDevil.life--;if(dustDevil.life<=0){dustDevil.active=false;return;}for(const a of animals){if(!a.alive||a.brain.flying)continue;const d=dist(a,dustDevil);if(d<25){a.memory.fear=Math.min(100,a.memory.fear+1);const dir=dirFrom(dustDevil,a);a.vx+=dir.dx*0.02;a.vy+=dir.dy*0.01;}}}
 function drawDustDevil(tk){if(!dustDevil.active)return;const sx=worldToScreenX(dustDevil.x),sy=Math.floor(dustDevil.y-VP.y);if(sx<-20||sx>PW+20)return;const a=getAmbient(simTime),fade=Math.min(dustDevil.life/60,(dustDevil.maxLife-dustDevil.life)/60,1);for(let i=0;i<15;i++){const angle=tk*0.12+i*0.45,r=dustDevil.size*(0.3+(i/15)*0.7),py=sy-i*2,px=sx+Math.cos(angle)*r;if(py<0||py>=PH||px<0||px>=PW)continue;const al=fade*0.25*a*(1-i/18);ctx.fillStyle=`rgba(160,140,100,${al})`;ctx.fillRect(Math.floor(px),Math.floor(py),1,1);ctx.fillStyle=`rgba(140,125,85,${al*0.6})`;ctx.fillRect(Math.floor(px+Math.sin(angle)*0.8),Math.floor(py),1,1);}ctx.fillStyle=`rgba(150,135,95,${fade*0.12*a})`;ctx.fillRect(sx-dustDevil.size,sy-1,dustDevil.size*2,3);}
 const shootingStar={active:false,x:0,y:0,vx:0,vy:0,life:0,trail:[]};
+// Distant lightning: occasional flash on the horizon
+const lightning = { active: false, x: 0, timer: 0, flash: 0, doubleStrike: false };
+
+function drawDistantLightning(tick) {
+  const amb = getAmbient(simTime);
+  // Only at night or dusk
+  if (amb > 0.5) { lightning.active = false; return; }
+
+  if (!lightning.active) {
+    // ~Every 1-3 minutes at night, chance of distant lightning
+    if (pcgHash(tick & 0x7FF, 0, 8421) < 0.0008) {
+      lightning.active = true;
+      lightning.x = rand(0, PW); // random position on horizon
+      lightning.timer = 0;
+      lightning.flash = 0;
+      lightning.doubleStrike = pcgHash(tick, 1, 8421) < 0.4; // 40% chance of double-flash
+      if (pcgHash(tick, 2, 8421) < 0.3) showNarration('Distant thunder rolls across the plain');
+    }
+    return;
+  }
+
+  lightning.timer++;
+  const hS = HORIZON - VP.y;
+
+  // Flash sequence: brief bright flash, dim, optional second flash
+  let flashAlpha = 0;
+  if (lightning.timer < 3) {
+    flashAlpha = 0.3; // first flash
+  } else if (lightning.timer < 6) {
+    flashAlpha = 0.05; // afterglow
+  } else if (lightning.doubleStrike && lightning.timer > 8 && lightning.timer < 11) {
+    flashAlpha = 0.2; // second strike
+  } else if (lightning.timer > 15) {
+    lightning.active = false;
+    return;
+  }
+
+  if (flashAlpha > 0.01) {
+    // Horizon glow behind the hills
+    const glowW = 60 + Math.floor(pcgHash(Math.floor(lightning.x), lightning.timer, 8422) * 40);
+    const glowX = Math.floor(lightning.x - glowW / 2);
+    for (let y = Math.max(0, hS - 15); y < Math.min(PH, hS + 8); y++) {
+      const yFade = 1 - Math.abs(y - hS) / 15;
+      const a = flashAlpha * yFade * (0.5 - amb);
+      if (a > 0.005) {
+        ctx.fillStyle = `rgba(220,230,255,${a})`;
+        ctx.fillRect(glowX, y, glowW, 1);
+      }
+    }
+
+    // Lightning bolt: jagged line from sky to horizon
+    if (flashAlpha > 0.15) {
+      ctx.fillStyle = `rgba(240,245,255,${flashAlpha * 1.5})`;
+      let bx = Math.floor(lightning.x);
+      let by = Math.max(0, hS - 20);
+      const boltEnd = hS;
+      while (by < boltEnd) {
+        ctx.fillRect(bx, by, 1, 2);
+        by += 2;
+        bx += Math.round((pcgHash(bx, by, 8423) - 0.5) * 4); // jagged
+        // Occasional branch
+        if (pcgHash(bx, by, 8424) < 0.2) {
+          const branchDir = pcgHash(bx, by, 8425) < 0.5 ? -1 : 1;
+          ctx.fillRect(bx + branchDir, by, 1, 1);
+          ctx.fillRect(bx + branchDir * 2, by + 1, 1, 1);
+        }
+      }
+    }
+  }
+}
+
 function drawShootingStars(tk){const a=getAmbient(simTime);if(a>0.2){shootingStar.active=false;return;}if(!shootingStar.active){if(pcgHash(tk&0x1FF,0,7777)<0.001){shootingStar.active=true;shootingStar.x=rand(20,PW-40);shootingStar.y=rand(5,(HORIZON-VP.y)*0.5);shootingStar.vx=rand(1.5,3)*(pcgHash(tk,1,7777)>0.5?1:-1);shootingStar.vy=rand(0.3,1);shootingStar.life=randInt(15,30);shootingStar.trail=[];}return;}shootingStar.trail.push({x:shootingStar.x,y:shootingStar.y});if(shootingStar.trail.length>8)shootingStar.trail.shift();shootingStar.x+=shootingStar.vx;shootingStar.y+=shootingStar.vy;shootingStar.life--;if(shootingStar.life<=0||shootingStar.x<0||shootingStar.x>PW||shootingStar.y>PH*0.5){shootingStar.active=false;return;}const sa=(0.2-a)/0.2;for(let i=0;i<shootingStar.trail.length;i++){ctx.fillStyle=`rgba(255,255,240,${(i+1)/shootingStar.trail.length*0.6*sa})`;ctx.fillRect(Math.floor(shootingStar.trail[i].x),Math.floor(shootingStar.trail[i].y),1,1);}ctx.fillStyle=`rgba(255,255,250,${0.9*sa})`;ctx.fillRect(Math.floor(shootingStar.x),Math.floor(shootingStar.y),1,1);}
 
 // ── Narration (improved readability) ──
@@ -766,7 +837,7 @@ function render(){
   }
   drawSunFG();drawWindWaves(logicTick);drawClouds();drawWaterHole(logicTick,animals);drawFgGrass(logicTick);drawDust(logicTick);drawWindSeeds(logicTick);
   const drawList=[];for(const a of animals)if(a.alive||a.state===STATE.DEAD)drawList.push({y:a.y,type:'a',ref:a});for(const t of trees)drawList.push({y:t.y,type:'t',ref:t});for(const s of shrubs)drawList.push({y:s.y,type:'s',ref:s});drawList.sort((a,b)=>a.y-b.y);for(const d of drawList){if(d.type==='a'){drawShadow(d.ref);d.ref.draw(ctx,VP.x,VP.y);}else if(d.type==='t')drawTreeDyn(d.ref);else drawShrubDyn(d.ref);}
-  updateParticles(animals);drawFireflies(logicTick);drawDustDevil(logicTick);drawShootingStars(logicTick);drawHeatShimmer(logicTick);drawMorningMist(logicTick);drawSunRays();drawEyeShine();
+  updateParticles(animals);drawFireflies(logicTick);drawDustDevil(logicTick);drawShootingStars(logicTick);drawDistantLightning(logicTick);drawHeatShimmer(logicTick);drawMorningMist(logicTick);drawSunRays();drawEyeShine();
   // Window vignette
   ctx.drawImage(vigCanvas, 0, 0);
   // Color grade
