@@ -70,7 +70,27 @@ function updateTime() { const now = performance.now(), dtReal = (now-lastRealTim
 // ── Input System ──
 const inputState = { left:false, right:false, dragging:false, dragStartX:0, dragVpStart:0 };
 let configMenuOpen = false;
-document.addEventListener("keydown", e => { if (configMenuOpen) return; if (e.key==="ArrowLeft"||e.key==="a") inputState.left=true; if (e.key==="ArrowRight"||e.key==="d") inputState.right=true; });
+document.addEventListener("keydown", e => {
+  if (configMenuOpen) return;
+  if (e.key==="ArrowLeft"||e.key==="a") inputState.left=true;
+  if (e.key==="ArrowRight"||e.key==="d") inputState.right=true;
+  // Time skip: n = next period (dawn/noon/sunset/night)
+  if (e.key === 'n') {
+    const periods = [5.5, 7, 12, 17.5, 20.5];
+    const next = periods.find(p => p > simTime + 0.1) || periods[0];
+    simTime = next; bgDirty = true;
+    localStorage.setItem('ss_simTime', String(simTime));
+    localStorage.setItem('ss_savedAt', String(Date.now()));
+  }
+  // Speed toggle: s = cycle through 1x/60x/300x
+  if (e.key === 's' && !e.ctrlKey) {
+    const speeds = [86400, 1440, 288]; // 24h, 24min, ~5min per day
+    const idx = speeds.indexOf(dayLengthSec);
+    dayLengthSec = speeds[(idx + 1) % speeds.length];
+    dayLengthSel.value = String(dayLengthSec);
+    localStorage.setItem('ss_dayLength', String(dayLengthSec));
+  }
+});
 document.addEventListener("keyup", e => { if (e.key==="ArrowLeft"||e.key==="a") inputState.left=false; if (e.key==="ArrowRight"||e.key==="d") inputState.right=false; });
 canvas.addEventListener("mousedown", e => { if (e.button!==0) return; inputState.dragging=true; inputState.dragStartX=e.clientX; inputState.dragVpStart=VP.x; canvas.style.cursor="grabbing"; });
 document.addEventListener("mousemove", e => { if (!inputState.dragging) return; VP.x = wrapX(inputState.dragVpStart - (e.clientX-inputState.dragStartX)*PW/canvas.clientWidth); bgDirty=true; });
@@ -243,7 +263,10 @@ class Animal {
     const horizonSy=HORIZON-vpy,isFlying=this.brain.flying&&this.state!==STATE.PERCH&&this.state!==STATE.WALK_GROUND;
     let depthScale=1;if(!isFlying&&sy>horizonSy)depthScale=0.85+((sy-horizonSy)/Math.max(1,PH-horizonSy))*0.25;
     const speed=Math.hypot(this.vx,this.vy),isMoving=speed>0.02,wp=this._walkDist*0.35,bob=isMoving?Math.sin(wp*2)*0.6:0;
-    ctx.save();ctx.translate(sx,sy+Math.round(-Math.abs(bob)*0.3));if(depthScale!==1)ctx.scale(depthScale,depthScale);if(this.facing===-1)ctx.scale(-1,1);
+    // Breathing: sleeping animals gently rise/fall 1px on a slow cycle
+    const isResting = this.state === STATE.REST && speed < 0.03;
+    const breathe = isResting ? Math.round(Math.sin(this.frame * 0.04 + this.seed) * 0.5) : 0;
+    ctx.save();ctx.translate(sx,sy+Math.round(-Math.abs(bob)*0.3)+breathe);if(depthScale!==1)ctx.scale(depthScale,depthScale);if(this.facing===-1)ctx.scale(-1,1);
     // Night dimming: animals appear as darker silhouettes at night
     const nightDim = getAmbient(simTime);
     if (nightDim < 0.5) ctx.globalAlpha = clamp(0.4 + nightDim * 1.2, 0.4, 1);
@@ -285,7 +308,69 @@ class Animal {
     if(resting){ctx.fillStyle=rgb([190,150,65]);ctx.fillRect(-5,-2,10,2);ctx.fillStyle=rgb([165,120,45]);ctx.fillRect(3,-4,5,3);ctx.fillStyle=rgb([190,150,65]);ctx.fillRect(6,-3,2,2);ctx.fillStyle=rgb([35,25,10]);ctx.fillRect(7,-3,1,1);ctx.fillStyle=rgb([120,85,35]);ctx.fillRect(-6,-1,1,1);return;}
     if(eating){ctx.fillStyle=rgb([195,155,68]);ctx.fillRect(-5,-4,10,4);ctx.fillStyle=rgb([160,115,42]);ctx.fillRect(3,-6,5,4);ctx.fillRect(2,-7,6,2);ctx.fillStyle=rgb([180,140,60]);ctx.fillRect(5,-2,3,2);ctx.fillStyle=rgb([55,35,15]);ctx.fillRect(7,-1,1,1);ctx.fillStyle=rgb([155,115,50]);ctx.fillRect(-3,0,1,3);ctx.fillRect(-1,0,1,3);ctx.fillRect(2,0,1,3);ctx.fillRect(4,0,1,3);ctx.fillStyle=rgb([170,130,55]);ctx.fillRect(-6,-3+Math.round(Math.sin(this.frame*0.06)),2,1);return;}
     ctx.fillStyle=rgb([195,155,68]);ctx.fillRect(-5,-4+crouch,10,4);ctx.fillStyle=rgb([175,135,55]);ctx.fillRect(-4,-4+crouch,8,1);ctx.fillStyle=rgb([160,115,42]);ctx.fillRect(3,-7+crouch,5,5);ctx.fillRect(2,-8+crouch,6,2);ctx.fillStyle=rgb([185,140,55]);ctx.fillRect(3,-8+crouch,4,1);ctx.fillStyle=rgb([180,140,60]);ctx.fillRect(6,-6+crouch,2,3);ctx.fillStyle=rgb([55,35,15]);ctx.fillRect(7,-5+crouch,1,1);ctx.fillStyle=rgb([35,25,10]);ctx.fillRect(7,-6+crouch,1,1);ctx.fillStyle=rgb([155,115,50]);ctx.fillRect(-3+l.bl,crouch,1,3-crouch);ctx.fillRect(-1+l.br,crouch,1,3-crouch);ctx.fillRect(2+l.fl,crouch,1,3-crouch);ctx.fillRect(4+l.fr,crouch,1,3-crouch);const tw=Math.sin(this.frame*0.06);ctx.fillStyle=rgb([170,130,55]);ctx.fillRect(-6,-3+crouch+Math.round(tw),2,1);ctx.fillStyle=rgb([140,100,40]);ctx.fillRect(-7,-2+crouch+Math.round(tw),1,1);}
-  _sprElephant(ctx,wp,m){const l=this._legs(wp*0.7,m);ctx.fillStyle=rgb([100,95,85]);ctx.fillRect(-6,-8,13,8);ctx.fillRect(-5,-9,11,1);ctx.fillStyle=rgb([110,105,95]);ctx.fillRect(-5,-1,10,1);ctx.fillStyle=rgb([100,95,85]);ctx.fillRect(6,-9,4,6);ctx.fillRect(5,-10,4,2);ctx.fillStyle=rgb([85,80,72]);const ef=Math.sin(this.frame*0.025)>0.3?1:0;ctx.fillRect(4-ef,-10,3+ef,4);ctx.fillStyle=rgb([115,100,85]);ctx.fillRect(5-ef,-9,1,2);ctx.fillStyle=rgb([30,25,20]);ctx.fillRect(8,-8,1,1);ctx.fillStyle=rgb([92,87,77]);const ts=Math.sin(this.frame*0.03);ctx.fillRect(8,-4,1,4);ctx.fillRect(9,-1+Math.round(ts*0.5),1,2);ctx.fillRect(9,1+Math.round(ts),1,1);ctx.fillStyle=rgb([235,230,215]);ctx.fillRect(9,-5,1,2);ctx.fillStyle=rgb([82,78,68]);ctx.fillRect(-4+l.bl,0,2,4);ctx.fillRect(-1+l.br,0,2,4);ctx.fillRect(2+l.fl,0,2,4);ctx.fillRect(5+l.fr,0,2,4);ctx.fillStyle=rgb([70,65,55]);ctx.fillRect(-7,-7,1,2);ctx.fillRect(-8,-6,1,2);}
+  _sprElephant(ctx,wp,m){
+    const drinking = this.state === STATE.DRINK;
+    const resting = this.state === STATE.REST && Math.hypot(this.vx, this.vy) < 0.03;
+    const l = this._legs(wp * 0.7, m);
+    // Body (lighter edge for night visibility)
+    ctx.fillStyle = rgb([100, 95, 85]);
+    ctx.fillRect(-6, -8, 13, 8);
+    ctx.fillRect(-5, -9, 11, 1);
+    // Lighter top edge for silhouette contrast
+    ctx.fillStyle = rgb([115, 110, 100]);
+    ctx.fillRect(-5, -9, 11, 1);
+    // Belly
+    ctx.fillStyle = rgb([110, 105, 95]);
+    ctx.fillRect(-5, -1, 10, 1);
+    // Head
+    ctx.fillStyle = rgb([100, 95, 85]);
+    ctx.fillRect(6, -9, 4, 6);
+    ctx.fillRect(5, -10, 4, 2);
+    // Ear (animated flap)
+    ctx.fillStyle = rgb([85, 80, 72]);
+    const ef = Math.sin(this.frame * 0.025) > 0.3 ? 1 : 0;
+    ctx.fillRect(4 - ef, -10, 3 + ef, 4);
+    ctx.fillStyle = rgb([115, 100, 85]);
+    ctx.fillRect(5 - ef, -9, 1, 2);
+    // Eye
+    ctx.fillStyle = rgb([30, 25, 20]);
+    ctx.fillRect(8, -8, 1, 1);
+    // Trunk (raised when drinking, swinging otherwise)
+    ctx.fillStyle = rgb([92, 87, 77]);
+    if (drinking) {
+      // Trunk raised, spraying water
+      ctx.fillRect(8, -6, 1, 3);
+      ctx.fillRect(9, -7, 1, 2);
+      ctx.fillRect(9, -8, 1, 1);
+      // Water spray particles from trunk tip
+      if (this.frame % 12 < 6) {
+        ctx.fillStyle = `rgba(100,140,180,0.5)`;
+        ctx.fillRect(10, -9, 1, 1);
+        ctx.fillRect(9, -10, 1, 1);
+        ctx.fillRect(8, -9, 1, 1);
+      }
+    } else {
+      const ts = Math.sin(this.frame * 0.03);
+      ctx.fillRect(8, -4, 1, 4);
+      ctx.fillRect(9, -1 + Math.round(ts * 0.5), 1, 2);
+      ctx.fillRect(9, 1 + Math.round(ts), 1, 1);
+    }
+    // Tusks
+    ctx.fillStyle = rgb([235, 230, 215]);
+    ctx.fillRect(9, -5, 1, 2);
+    // Legs (not drawn if resting)
+    if (!resting) {
+      ctx.fillStyle = rgb([82, 78, 68]);
+      ctx.fillRect(-4 + l.bl, 0, 2, 4);
+      ctx.fillRect(-1 + l.br, 0, 2, 4);
+      ctx.fillRect(2 + l.fl, 0, 2, 4);
+      ctx.fillRect(5 + l.fr, 0, 2, 4);
+    }
+    // Tail
+    ctx.fillStyle = rgb([70, 65, 55]);
+    ctx.fillRect(-7, -7, 1, 2);
+    ctx.fillRect(-8, -6, 1, 2);
+  }
   _sprGiraffe(ctx,wp,m){const hd=this.state===STATE.DRINK?8:this.state===STATE.GRAZE?4:0,l=this._legs(wp*0.8,m);ctx.fillStyle=rgb([195,165,100]);ctx.fillRect(-3,-5,7,5);ctx.fillStyle=rgb([140,105,55]);ctx.fillRect(-2,-4,2,2);ctx.fillRect(1,-3,2,2);ctx.fillRect(0,-5,1,1);ctx.fillStyle=rgb([195,165,100]);ctx.fillRect(3,-14+hd,2,10);ctx.fillStyle=rgb([140,105,55]);ctx.fillRect(3,-12+hd,1,2);ctx.fillRect(4,-9+hd,1,2);ctx.fillRect(3,-7+hd,1,1);ctx.fillStyle=rgb([195,165,100]);ctx.fillRect(4,-15+hd,2,2);ctx.fillStyle=rgb([140,120,80]);ctx.fillRect(4,-17+hd,1,2);ctx.fillRect(5,-16+hd,1,1);ctx.fillStyle=rgb([20,15,10]);ctx.fillRect(5,-15+hd,1,1);ctx.fillStyle=rgb([170,140,85]);ctx.fillRect(-2+l.bl,0,1,5);ctx.fillRect(0+l.br,0,1,5);ctx.fillRect(2+l.fl,0,1,5);ctx.fillRect(3+l.fr,0,1,5);ctx.fillStyle=rgb([100,80,50]);ctx.fillRect(-4,-4,1,2);ctx.fillRect(-5,-3,1,1);}
   _sprBird(ctx){const onGround=this.state===STATE.PERCH||this.state===STATE.WALK_GROUND;if(onGround){ctx.fillStyle=rgb([55,48,42]);ctx.fillRect(0,-3,2,2);ctx.fillRect(-1,-2,1,1);ctx.fillStyle=rgb([90,65,30]);ctx.fillRect(3,-3,1,1);ctx.fillStyle=rgb([15,12,10]);ctx.fillRect(2,-3,1,1);ctx.fillStyle=rgb([65,50,35]);ctx.fillRect(0,-1,1,2);ctx.fillRect(1,-1,1,2);}else{const fs=0.10+(this.seed%100)/100*0.08,fp=this.seed*6.28,wu=Math.round(Math.sin(this.frame*fs+fp)*2);ctx.fillStyle=rgb([42,38,34]);ctx.fillRect(0,0,1,1);ctx.fillRect(-1,-1,1,1);ctx.fillRect(-2,-1-wu,1,1);ctx.fillRect(-3,-1-wu-(wu>0?1:0),1,1);ctx.fillRect(1,-1,1,1);ctx.fillRect(2,-1-wu,1,1);ctx.fillRect(3,-1-wu-(wu>0?1:0),1,1);}}
 }
@@ -296,7 +381,37 @@ function spawnAnimal(type) { let x,y; switch(type){case'zebra':x=rand(100,WORLD_
 function populateAnimals() { animals=[]; for(const[type,count]of Object.entries(CFG.animalCounts)) for(let i=0;i<count;i++) animals.push(spawnAnimal(type)); }
 populateAnimals();
 function syncAnimalCounts() { for(const[type,target]of Object.entries(CFG.animalCounts)){const cur=animals.filter(a=>a.type===type&&a.alive);let diff=target-cur.length;if(diff>0)for(let i=0;i<diff;i++)animals.push(spawnAnimal(type));else if(diff<0){let rm=-diff;for(let i=animals.length-1;i>=0&&rm>0;i--)if(animals[i].type===type&&animals[i].alive){animals.splice(i,1);rm--;}}} }
-function respawnCheck(tick) { if(tick%600!==0)return; for(const d of animals.filter(a=>!a.alive&&a.brain.prey)){if(animals.filter(a=>a.type===d.type&&a.alive).length>=CFG.animalCounts[d.type])continue;if(Math.random()<0.3){d.x=rand(0,WORLD_W);d.y=rand(HORIZON+15,HORIZON+70);d.alive=true;d.state=STATE.IDLE;d.vx=0;d.vy=0;d.targetVx=0;d.targetVy=0;d.memory={lastWater:-9999,thirst:rand(10,40),hunger:rand(10,40),fear:0,threats:[],huntTarget:null,fleeFrom:null,fearDirect:false};d.homeX=d.x;d.homeY=d.y;d._fiber=behaviorLoop(d,()=>animals);d._yieldRemaining=randInt(30,120);}} }
+function respawnCheck(tick) {
+  if (tick % 300 !== 0) return; // check every 10s
+  const dead = animals.filter(a => !a.alive && a.brain.prey);
+  for (const d of dead) {
+    const aliveOfType = animals.filter(a => a.type === d.type && a.alive).length;
+    const target = CFG.animalCounts[d.type] || 0;
+    if (aliveOfType >= target) continue;
+    // Higher respawn chance when population is low
+    const urgency = 1 - aliveOfType / Math.max(1, target); // 0=full, 1=empty
+    const chance = 0.3 + urgency * 0.5; // 30%-80% depending on how depleted
+    if (Math.random() < chance) {
+      d.x = rand(0, WORLD_W);
+      d.y = rand(HORIZON + 15, HORIZON + 70);
+      d.alive = true;
+      d.state = STATE.IDLE;
+      d.vx = 0; d.vy = 0;
+      d.targetVx = 0; d.targetVy = 0;
+      d.memory = { lastWater: -9999, thirst: rand(10, 40), hunger: rand(10, 40),
+        fear: 0, threats: [], huntTarget: null, fleeFrom: null };
+      d.homeX = d.x; d.homeY = d.y;
+      d._fiber = behaviorLoop(d, () => animals);
+      d._yieldRemaining = randInt(30, 120);
+    }
+  }
+  // Hard floor: if total alive drops below 50% of expected, force-spawn missing
+  const totalExpected = Object.values(CFG.animalCounts).reduce((s, v) => s + v, 0);
+  const totalAlive = animals.filter(a => a.alive).length;
+  if (totalAlive < totalExpected * 0.5) {
+    syncAnimalCounts();
+  }
+}
 
 // ── Background Rendering ──
 const bgCanvas = document.createElement("canvas"); bgCanvas.width=PW;bgCanvas.height=PH;
@@ -448,6 +563,71 @@ function drawShadow(an){if(!an.alive||an.brain.flying)return;const sx=worldToScr
 
 const fireflies=[];for(let i=0;i<12;i++)fireflies.push({x:rand(50,PW-50),y:rand(HORIZON-VP.y+10,PH-20),phase:rand(0,Math.PI*2),speed:rand(0.3,0.8),driftX:rand(-0.05,0.05),driftY:rand(-0.03,0.03)});
 function drawFireflies(tk){const a=getAmbient(simTime);if(a>0.4||a<0.08)return;const int=1-Math.abs(a-0.2)/0.2;for(const f of fireflies){f.x+=f.driftX+Math.sin(tk*0.01+f.phase)*0.08;f.y+=f.driftY+Math.cos(tk*0.008+f.phase)*0.05;if(f.x<10)f.x=PW-10;if(f.x>PW-10)f.x=10;if(f.y<HORIZON-VP.y+5)f.y=PH-20;if(f.y>PH-15)f.y=HORIZON-VP.y+10;const glow=(Math.sin(tk*f.speed*0.1+f.phase)+1)*0.5;if(glow<0.3)continue;const al=glow*int*0.7;ctx.fillStyle=`rgba(180,220,80,${al*0.3})`;ctx.fillRect(Math.floor(f.x)-1,Math.floor(f.y)-1,3,3);ctx.fillStyle=`rgba(220,255,120,${al})`;ctx.fillRect(Math.floor(f.x),Math.floor(f.y),1,1);}}
+// Morning mist: ground fog at dawn that slowly dissipates
+function drawMorningMist(tick) {
+  const t = simTime;
+  // Mist visible from 5:00-7:30, peaks around 5:30-6:00
+  if (t < 4.5 || t > 7.5) return;
+  let intensity;
+  if (t < 5.5) intensity = (t - 4.5) / 1.0; // forming
+  else if (t < 6.0) intensity = 1.0; // peak
+  else intensity = 1.0 - (t - 6.0) / 1.5; // dissipating
+  if (intensity <= 0) return;
+
+  const hS = HORIZON - VP.y;
+  const mistTop = hS - 5; // mist rises slightly above horizon
+  const mistBottom = Math.min(PH, hS + 50); // extends ~50px below horizon
+
+  // Multiple wispy layers
+  for (let layer = 0; layer < 3; layer++) {
+    const layerSpeed = 0.015 + layer * 0.008;
+    const layerOffset = tick * layerSpeed + layer * 80;
+    const layerAlpha = intensity * (0.06 - layer * 0.015); // front layers more opaque
+
+    for (let y = mistTop; y < mistBottom; y++) {
+      if (y < 0 || y >= PH) continue;
+      const yFade = (y < hS)
+        ? (y - mistTop) / Math.max(1, hS - mistTop) // above horizon: fade to top
+        : 1.0 - (y - hS) / Math.max(1, mistBottom - hS); // below: fade to bottom
+      // Wispy horizontal variation using hash
+      for (let x = 0; x < PW; x += 2) {
+        const wx = x + Math.floor(layerOffset);
+        const wispDensity = pcgHash(wx >> 3, y >> 2, 4321 + layer);
+        if (wispDensity < 0.4) continue; // gaps in mist
+        const wispAlpha = layerAlpha * yFade * (wispDensity - 0.4) / 0.6;
+        if (wispAlpha < 0.003) continue;
+        ctx.fillStyle = `rgba(200,210,220,${wispAlpha})`;
+        ctx.fillRect(x, y, 2, 1);
+      }
+    }
+  }
+
+  // Thicker mist patch around waterhole (water evaporation)
+  const whSx = worldToScreenX(waterHole.x);
+  const whSy = Math.floor(waterHole.y - VP.y);
+  if (whSx > -40 && whSx < PW + 40 && whSy > 0 && whSy < PH) {
+    const whMistR = 25;
+    const whAlpha = intensity * 0.08;
+    for (let dy = -whMistR; dy <= 5; dy++) {
+      for (let dx = -whMistR; dx <= whMistR; dx++) {
+        const d = Math.hypot(dx, dy * 2); // wider than tall
+        if (d > whMistR) continue;
+        const py = whSy + dy - 5; // rises above waterhole
+        const px = whSx + dx;
+        if (px < 0 || px >= PW || py < 0 || py >= PH) continue;
+        const fade = (1 - d / whMistR);
+        // Drift with time
+        const drift = Math.floor(tick * 0.02 + dy * 0.3);
+        const wispVal = pcgHash((px + drift) >> 2, py >> 2, 5432);
+        if (wispVal < 0.3) continue;
+        const a = whAlpha * fade * fade * (wispVal - 0.3) / 0.7;
+        ctx.fillStyle = `rgba(210,220,230,${a})`;
+        ctx.fillRect(px, py, 1, 1);
+      }
+    }
+  }
+}
+
 function drawSunRays(){const sun=getSunPos(simTime);if(!sun)return;const t=simTime;if(!((t>6&&t<8)||(t>16.5&&t<19)))return;const int=(t<12)?1-Math.abs(t-7)/1:1-Math.abs(t-17.75)/1.25;if(int<=0)return;let sx=worldToScreenX(sun.x),sy=Math.floor(sun.y-VP.y);if(sx<-20)sx=-10;if(sx>PW+20)sx=PW+10;sy=clamp(sy,-10,PH*0.6);const a=getAmbient(simTime),sc=getSunColor(simTime);ctx.fillStyle=`rgb(${sc[0]},${sc[1]},${Math.floor(sc[2]*0.7)})`;for(let i=0;i<7;i++){const ra=(i/7)*0.8-0.4+pcgHash(i,0,9876)*0.15,rw=3+pcgHash(i,1,9876)*8,rl=60+pcgHash(i,2,9876)*80;if(pcgHash(i,3,9876)>0.7)continue;const x1=sx+Math.tan(ra)*10-rw*0.3,x2=sx+Math.tan(ra)*10+rw*0.3,x3=sx+Math.tan(ra)*rl-rw,x4=sx+Math.tan(ra)*rl+rw,y1=sy+5,y2=sy+rl;for(let ry=y1;ry<y2&&ry<PH;ry++){if(ry<0)continue;const rf=(ry-y1)/(y2-y1),lx=Math.floor(lerp(x1,x3,rf)),rx=Math.floor(lerp(x2,x4,rf)),fa=(1-rf)*(1-rf);if(rx>lx&&fa>0.01){ctx.globalAlpha=clamp(int*0.08*a*fa,0,0.08);ctx.fillRect(lx,ry,rx-lx,1);}}}ctx.globalAlpha=1;}
 function drawEyeShine(){const a=getAmbient(simTime);if(a>0.25||simTime>6&&simTime<18)return;const sa=(0.25-a)/0.25*0.7;for(const an of animals){if(!an.alive||an.brain.flying||an.state===STATE.REST||an.state===STATE.DEAD)continue;const sx=worldToScreenX(an.x),sy=Math.floor(an.y-VP.y);if(sx<-5||sx>PW+5||sy<-5||sy>PH+5)continue;const eX=sx+an.facing*(an.type==='elephant'?8:an.type==='giraffe'?5:an.type==='lion'?7:5),eY=sy-(an.type==='giraffe'?14:an.type==='elephant'?8:5),ip=an.type==='lion';ctx.fillStyle=`rgba(${ip?180:220},${ip?220:160},${ip?80:40},${sa})`;ctx.fillRect(eX,eY,1,1);ctx.fillStyle=`rgba(${ip?180:220},${ip?220:160},${ip?80:40},${sa*0.3})`;ctx.fillRect(eX-1,eY,1,1);ctx.fillRect(eX+1,eY,1,1);}}
 
@@ -464,7 +644,7 @@ function showNarration(text){if(narration.cooldown>0)return;narration.text=text;
 function updateNarration(){if(narration.cooldown>0)narration.cooldown--;if(narration.timer<=0)return;narration.timer--;if(narration.timer>210)narration.alpha=(240-narration.timer)/30;else if(narration.timer<60)narration.alpha=narration.timer/60;else narration.alpha=1;}
 function drawNarration(){if(narration.timer<=0||narration.alpha<=0)return;ctx.save();ctx.globalAlpha=narration.alpha*0.85;ctx.font='9px "Segoe UI",system-ui,sans-serif';ctx.textAlign='center';ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillText(narration.text,PW/2+1,PH-15+1);ctx.fillText(narration.text,PW/2-1,PH-15-1);ctx.fillStyle='#e8dcc0';ctx.fillText(narration.text,PW/2,PH-15);ctx.restore();}
 let lastNarrationTick=0;
-function detectEvents(tk){if(tk-lastNarrationTick<600)return;const h=Math.floor(simTime),m=Math.floor((simTime%1)*60);if(h===5&&m>=15&&m<18){showNarration('First light touches the horizon');lastNarrationTick=tk;return;}if(h===5&&m>=30&&m<33){showNarration('Birds stir in the trees');lastNarrationTick=tk;return;}if(h===6&&m<3){showNarration('Dawn breaks over the savanna');lastNarrationTick=tk;return;}if(h===18&&m<3){showNarration('The sun sinks toward the horizon');lastNarrationTick=tk;return;}if(h===20&&m>=30&&m<33){showNarration('Night settles over the plain');lastNarrationTick=tk;return;}for(const a of animals){if(!a.alive)continue;if(a.type==='lion'&&a.state===STATE.STALK){showNarration('A lion begins to stalk...');lastNarrationTick=tk;return;}if(a.type==='lion'&&a.state===STATE.CHASE){showNarration('The lion charges!');lastNarrationTick=tk;return;}}const fl=animals.filter(a=>a.alive&&a.state===STATE.FLEE);if(fl.length>=3){const names={zebra:'Zebras',gazelle:'Gazelles',wildebeest:'Wildebeest',warthog:'Warthogs'};showNarration((names[fl[0].type]||'The herd')+' scatter in alarm!');lastNarrationTick=tk;return;}if(animals.filter(a=>a.alive&&a.state===STATE.DRINK).length>=2){showNarration('Animals gather at the waterhole');lastNarrationTick=tk;return;}if(animals.filter(a=>a.alive&&a.state===STATE.GRAZE).length>=6&&tk%1800<30){showNarration('The plain is still');lastNarrationTick=tk;return;}if((simTime<5.5||simTime>20.5)&&animals.filter(a=>a.alive&&a.state===STATE.REST).length>=10&&tk%2400<30){showNarration('The savanna sleeps');lastNarrationTick=tk;return;}}
+function detectEvents(tk){if(tk-lastNarrationTick<600)return;const h=Math.floor(simTime),m=Math.floor((simTime%1)*60);if(h===5&&m>=15&&m<18){showNarration('First light touches the horizon');lastNarrationTick=tk;return;}if(h===5&&m>=30&&m<33){showNarration('Birds stir in the trees');lastNarrationTick=tk;return;}if(h===6&&m<3){showNarration('Dawn breaks through the mist');lastNarrationTick=tk;return;}if(h===18&&m<3){showNarration('The sun sinks toward the horizon');lastNarrationTick=tk;return;}if(h===20&&m>=30&&m<33){showNarration('Night settles over the plain');lastNarrationTick=tk;return;}for(const a of animals){if(!a.alive)continue;if(a.type==='lion'&&a.state===STATE.STALK){showNarration('A lion begins to stalk...');lastNarrationTick=tk;return;}if(a.type==='lion'&&a.state===STATE.CHASE){showNarration('The lion charges!');lastNarrationTick=tk;return;}}const fl=animals.filter(a=>a.alive&&a.state===STATE.FLEE);if(fl.length>=3){const names={zebra:'Zebras',gazelle:'Gazelles',wildebeest:'Wildebeest',warthog:'Warthogs'};showNarration((names[fl[0].type]||'The herd')+' scatter in alarm!');lastNarrationTick=tk;return;}if(animals.filter(a=>a.alive&&a.state===STATE.DRINK).length>=2){showNarration('Animals gather at the waterhole');lastNarrationTick=tk;return;}if(animals.filter(a=>a.alive&&a.state===STATE.GRAZE).length>=6&&tk%1800<30){showNarration('The plain is still');lastNarrationTick=tk;return;}if((simTime<5.5||simTime>20.5)&&animals.filter(a=>a.alive&&a.state===STATE.REST).length>=10&&tk%2400<30){showNarration('The savanna sleeps');lastNarrationTick=tk;return;}}
 
 // ── Config Menu ──
 function createConfigMenu(){const ov=document.createElement('div');ov.id='config-overlay';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100;display:none;align-items:center;justify-content:center;';const dl=document.createElement('div');dl.style.cssText='background:#1a1a1a;border:1px solid #444;border-radius:8px;padding:16px 20px;color:#ccc;font:12px/1.8 monospace;min-width:280px;max-width:340px;max-height:80vh;overflow-y:auto;';const ti=document.createElement('div');ti.style.cssText='font-size:14px;font-weight:bold;margin-bottom:10px;color:#e8dcc0;';ti.textContent='Settings';dl.appendChild(ti);
@@ -503,7 +683,7 @@ function render(){
   }
   drawSunFG();drawWindWaves(logicTick);drawClouds();drawWaterHole(logicTick,animals);drawFgGrass(logicTick);drawDust(logicTick);drawWindSeeds(logicTick);
   const drawList=[];for(const a of animals)if(a.alive||a.state===STATE.DEAD)drawList.push({y:a.y,type:'a',ref:a});for(const t of trees)drawList.push({y:t.y,type:'t',ref:t});for(const s of shrubs)drawList.push({y:s.y,type:'s',ref:s});drawList.sort((a,b)=>a.y-b.y);for(const d of drawList){if(d.type==='a'){drawShadow(d.ref);d.ref.draw(ctx,VP.x,VP.y);}else if(d.type==='t')drawTreeDyn(d.ref);else drawShrubDyn(d.ref);}
-  updateParticles(animals);drawFireflies(logicTick);drawDustDevil(logicTick);drawShootingStars(logicTick);drawHeatShimmer(logicTick);drawSunRays();drawEyeShine();
+  updateParticles(animals);drawFireflies(logicTick);drawDustDevil(logicTick);drawShootingStars(logicTick);drawHeatShimmer(logicTick);drawMorningMist(logicTick);drawSunRays();drawEyeShine();
   // Window vignette
   ctx.drawImage(vigCanvas, 0, 0);
   // Color grade
