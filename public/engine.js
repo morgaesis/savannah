@@ -679,6 +679,43 @@ function drawShadow(an) {
 }
 
 const fireflies=[];for(let i=0;i<12;i++)fireflies.push({x:rand(50,PW-50),y:rand(HORIZON-VP.y+10,PH-20),phase:rand(0,Math.PI*2),speed:rand(0.3,0.8),driftX:rand(-0.05,0.05),driftY:rand(-0.03,0.03)});
+// Cricket chirps: tiny expanding rings on the ground at night
+const crickets = [];
+for (let i = 0; i < 8; i++) {
+  crickets.push({
+    x: rand(30, PW - 30),
+    y: rand(HORIZON - VP.y + 15, PH - 25),
+    phase: rand(0, Math.PI * 2),
+    interval: randInt(90, 200), // ticks between chirps
+    ringAge: -1, // -1 = not chirping
+  });
+}
+
+function drawCrickets(tick) {
+  const amb = getAmbient(simTime);
+  if (amb > 0.3) return; // only at night
+
+  const nightDepth = (0.3 - amb) / 0.3;
+  for (const c of crickets) {
+    // Trigger chirp
+    if (c.ringAge < 0 && (tick + Math.floor(c.phase * 100)) % c.interval === 0) {
+      c.ringAge = 0;
+    }
+    if (c.ringAge >= 0) {
+      c.ringAge++;
+      const r = c.ringAge * 0.4; // expanding ring
+      const fade = 1 - c.ringAge / 20;
+      if (fade <= 0) { c.ringAge = -1; continue; }
+      const alpha = fade * nightDepth * 0.12;
+      ctx.strokeStyle = `rgba(180,200,160,${alpha})`;
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+}
+
 function drawFireflies(tk){const a=getAmbient(simTime);if(a>0.4||a<0.08)return;const int=1-Math.abs(a-0.2)/0.2;for(const f of fireflies){f.x+=f.driftX+Math.sin(tk*0.01+f.phase)*0.08;f.y+=f.driftY+Math.cos(tk*0.008+f.phase)*0.05;if(f.x<10)f.x=PW-10;if(f.x>PW-10)f.x=10;if(f.y<HORIZON-VP.y+5)f.y=PH-20;if(f.y>PH-15)f.y=HORIZON-VP.y+10;const glow=(Math.sin(tk*f.speed*0.1+f.phase)+1)*0.5;if(glow<0.3)continue;const al=glow*int*0.7;ctx.fillStyle=`rgba(180,220,80,${al*0.3})`;ctx.fillRect(Math.floor(f.x)-1,Math.floor(f.y)-1,3,3);ctx.fillStyle=`rgba(220,255,120,${al})`;ctx.fillRect(Math.floor(f.x),Math.floor(f.y),1,1);}}
 // Morning mist: ground fog at dawn that slowly dissipates
 function drawMorningMist(tick) {
@@ -942,7 +979,7 @@ function render(){
   }
   drawSunFG();drawWindWaves(logicTick);drawClouds();drawWaterHole(logicTick,animals);drawFgGrass(logicTick);drawDust(logicTick);drawWindSeeds(logicTick);
   const drawList=[];for(const a of animals)if(a.alive||a.state===STATE.DEAD)drawList.push({y:a.y,type:'a',ref:a});for(const t of trees)drawList.push({y:t.y,type:'t',ref:t});for(const s of shrubs)drawList.push({y:s.y,type:'s',ref:s});drawList.sort((a,b)=>a.y-b.y);for(const d of drawList){if(d.type==='a'){drawShadow(d.ref);d.ref.draw(ctx,VP.x,VP.y);}else if(d.type==='t')drawTreeDyn(d.ref);else drawShrubDyn(d.ref);}
-  updateParticles(animals);drawFireflies(logicTick);drawDustDevil(logicTick);drawShootingStars(logicTick);drawDistantLightning(logicTick);drawHeatShimmer(logicTick);drawMorningMist(logicTick);drawSunRays();drawOwl();drawEyeShine();
+  updateParticles(animals);drawFireflies(logicTick);drawCrickets(logicTick);drawDustDevil(logicTick);drawShootingStars(logicTick);drawDistantLightning(logicTick);drawHeatShimmer(logicTick);drawMorningMist(logicTick);drawSunRays();drawOwl();drawEyeShine();
   // Window vignette
   ctx.drawImage(vigCanvas, 0, 0);
   // Color grade
