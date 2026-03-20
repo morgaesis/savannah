@@ -215,7 +215,7 @@ function* herdDrift(self, getAnimals) { if(!self.brain.herd){yield 60;return;} c
 function* lionHunt(self, getAnimals) {
   self.state=STATE.HUNT; let target=null,nd=Infinity; for(const o of getAnimals()){if(o===self||!o.alive||!o.brain.prey)continue;const d=dist(self,o);if(d<self.brain.huntRange&&d<nd){target=o;nd=d;}} if(!target){self.state=STATE.REST;yield randInt(600,1500);return;}
   self.state=STATE.STALK; for(let i=0;i<800&&self.alive;i++){if(!target.alive){self.state=STATE.REST;yield randInt(300,600);return;}if(target.state===STATE.FLEE){if(dist(self,target)<45)break;else{self.state=STATE.REST;yield randInt(600,1500);return;}}const dir=dirFrom(self,target);if(dir.d<20)break;const pause=pcgHash(i>>2,Math.floor(self.seed*100),66)>0.55;self.targetVx=pause?0:dir.dx*self.brain.speed*0.25;self.targetVy=pause?0:dir.dy*self.brain.speed*0.075;yield 1;}
-  self.state=STATE.CHASE; for(let i=0;i<350&&self.alive;i++){if(!target.alive)break;const dir=dirFrom(self,target);self.targetVx=dir.dx*self.brain.huntSpeed;self.targetVy=dir.dy*self.brain.huntSpeed*0.25;if(dir.d<6){target.alive=false;target.state=STATE.DEAD;self.state=STATE.EAT;self.targetVx=0;self.targetVy=0;showNarration('The lion feeds');for(let j=0,dur=randInt(600,1800);j<dur&&self.alive;j++){self.memory.hunger=Math.max(0,self.memory.hunger-0.06);self.targetVx=0;self.targetVy=0;if(dist(self,target)>8){const d2=dirFrom(self,target);self.targetVx=d2.dx*0.02;self.targetVy=d2.dy*0.01;}yield 1;}self.state=STATE.REST;yield randInt(800,2500);return;}if(dir.d>100)break;yield 1;}
+  self.state=STATE.CHASE; for(let i=0;i<350&&self.alive;i++){if(!target.alive)break;const dir=dirFrom(self,target);self.targetVx=dir.dx*self.brain.huntSpeed;self.targetVy=dir.dy*self.brain.huntSpeed*0.25;if(dir.d<6){target.alive=false;target.state=STATE.DEAD;self.state=STATE.EAT;self.targetVx=0;self.targetVy=0;showNarration('The lion feeds');spawnVultures(target.x, target.y);for(let j=0,dur=randInt(600,1800);j<dur&&self.alive;j++){self.memory.hunger=Math.max(0,self.memory.hunger-0.06);self.targetVx=0;self.targetVy=0;if(dist(self,target)>8){const d2=dirFrom(self,target);self.targetVx=d2.dx*0.02;self.targetVy=d2.dy*0.01;}yield 1;}self.state=STATE.REST;yield randInt(800,2500);return;}if(dir.d>100)break;yield 1;}
   self.state=STATE.REST;yield randInt(800,2500);
 }
 
@@ -285,6 +285,10 @@ class Animal {
     // Wrap X, soft-clamp Y
     if(this.brain.flying&&this.state!==STATE.PERCH&&this.state!==STATE.WALK_GROUND){this.x=wrapX(this.x);if(this.y<15){this.vy+=0.02;this.targetVy=Math.max(this.targetVy,0);}if(this.y>HORIZON-3){this.vy-=0.02;this.targetVy=Math.min(this.targetVy,0);}this.y=clamp(this.y,10,HORIZON);}else{this.x=wrapX(this.x);if(this.y<HORIZON+3){this.vy+=0.01;this.targetVy+=0.003;}else if(this.y>WORLD_H-15){this.vy-=0.01;this.targetVy-=0.003;}this.y=clamp(this.y,HORIZON+1,WORLD_H-5);}
     if(Math.abs(this.vx)>0.02)this.facing=this.vx>0?1:-1;
+    // Keep homeX in sync with wrapped position (prevents seam oscillation)
+    if (Math.abs(wrapDeltaX(this.x - this.homeX)) > WORLD_W * 0.3) {
+      this.homeX = this.x; // animal crossed far from home, reset home to current
+    }
     // Safety: fix NaN/invalid positions
     if(isNaN(this.x)||isNaN(this.y)){this.x=this.homeX;this.y=this.homeY;this.vx=0;this.vy=0;}
   }
@@ -911,6 +915,70 @@ function updateOwl(tick) {
   if (owl.x < -20 || owl.x > PW + 20) { owl.active = false; return; }
 }
 
+// Vultures: circle above carcasses after a kill
+const vultures = []; // {x, y, targetX, targetY, phase, radius, life}
+
+function spawnVultures(killX, killY) {
+  const count = randInt(3, 6);
+  for (let i = 0; i < count; i++) {
+    vultures.push({
+      x: killX + rand(-60, 60),
+      y: rand(20, HORIZON * 0.5),
+      targetX: killX,
+      targetY: killY,
+      phase: rand(0, Math.PI * 2),
+      radius: rand(15, 30),
+      speed: rand(0.008, 0.015),
+      life: randInt(1200, 3000), // 40-100 seconds
+      frame: 0,
+    });
+  }
+  if (getAmbient(simTime) > 0.3) showNarration('Vultures begin to circle');
+}
+
+function updateVultures(tick) {
+  for (let i = vultures.length - 1; i >= 0; i--) {
+    const v = vultures[i];
+    v.frame++;
+    v.life--;
+    if (v.life <= 0) { vultures.splice(i, 1); continue; }
+    // Circle above the kill site
+    v.phase += v.speed;
+    v.x = v.targetX + Math.cos(v.phase) * v.radius;
+    v.y = HORIZON * 0.3 + Math.sin(v.phase * 0.5) * 8;
+    // Slowly descend as time passes (getting bolder)
+    if (v.life < 400) {
+      v.radius *= 0.999; // tighten circle
+      v.y += 0.01; // drift lower
+    }
+  }
+}
+
+function drawVultures() {
+  const amb = getAmbient(simTime);
+  for (const v of vultures) {
+    const sx = worldToScreenX(v.x);
+    const sy = Math.floor(v.y - VP.y);
+    if (sx < -10 || sx > PW + 10 || sy < -5 || sy > PH) continue;
+
+    // Vulture silhouette: wider wingspan than other birds, distinctive shape
+    const wingPhase = Math.sin(v.frame * 0.04); // very slow wingbeat (soaring)
+    const w = Math.round(wingPhase * 0.8); // barely flaps (gliding)
+    ctx.fillStyle = `rgba(30,25,20,${0.6 + amb * 0.3})`;
+    // Body
+    ctx.fillRect(sx, sy, 2, 1);
+    // Wings (wide, fingered tips)
+    ctx.fillRect(sx - 3, sy - w, 3, 1);
+    ctx.fillRect(sx + 2, sy - w, 3, 1);
+    // Wing tips (spread fingers)
+    ctx.fillRect(sx - 4, sy - w - (w > 0 ? 1 : 0), 1, 1);
+    ctx.fillRect(sx + 5, sy - w - (w > 0 ? 1 : 0), 1, 1);
+    // Head (extends forward)
+    const facing = Math.cos(v.phase) > 0 ? 1 : -1;
+    ctx.fillRect(sx + facing, sy - 1, 1, 1);
+  }
+}
+
 function drawOwl() {
   if (!owl.active) return;
   const sx = Math.floor(owl.x), sy = Math.floor(owl.y);
@@ -1076,7 +1144,7 @@ const spatialGrid = {
   }
 };
 
-function logicStep(){logicTick++;spatialGrid.clear();for(const a of animals)if(a.alive)spatialGrid.insert(a);for(const a of animals)a.tick(logicTick);respawnCheck(logicTick);updateDustDevil(logicTick);updateOwl(logicTick);sleepShift(logicTick);if(logicTick%30===0)detectEvents(logicTick);}
+function logicStep(){logicTick++;spatialGrid.clear();for(const a of animals)if(a.alive)spatialGrid.insert(a);for(const a of animals)a.tick(logicTick);respawnCheck(logicTick);updateDustDevil(logicTick);updateOwl(logicTick);updateVultures(logicTick);sleepShift(logicTick);if(logicTick%30===0)detectEvents(logicTick);}
 
 // Sleeping animals occasionally shift position (flip facing)
 function sleepShift(tick) {
@@ -1106,7 +1174,7 @@ function render(){
   }
   drawSunFG();drawWindWaves(logicTick);drawClouds();drawWaterHole(logicTick,animals);drawFgGrass(logicTick);drawDust(logicTick);drawWindSeeds(logicTick);
   const drawList=[];for(const a of animals)if(a.alive||a.state===STATE.DEAD)drawList.push({y:a.y,type:'a',ref:a});for(const t of trees)drawList.push({y:t.y,type:'t',ref:t});for(const s of shrubs)drawList.push({y:s.y,type:'s',ref:s});drawList.sort((a,b)=>a.y-b.y);for(const d of drawList){if(d.type==='a'){drawShadow(d.ref);d.ref.draw(ctx,VP.x,VP.y);}else if(d.type==='t')drawTreeDyn(d.ref);else drawShrubDyn(d.ref);}
-  updateParticles(animals);drawFireflies(logicTick);drawCrickets(logicTick);drawDustDevil(logicTick);drawShootingStars(logicTick);drawDistantLightning(logicTick);drawHeatShimmer(logicTick);drawMorningMist(logicTick);drawSunRays();drawOwl();drawEyeShine();
+  updateParticles(animals);drawFireflies(logicTick);drawCrickets(logicTick);drawDustDevil(logicTick);drawShootingStars(logicTick);drawDistantLightning(logicTick);drawHeatShimmer(logicTick);drawMorningMist(logicTick);drawSunRays();drawVultures();drawOwl();drawEyeShine();
   // Window vignette
   ctx.drawImage(vigCanvas, 0, 0);
   // Color grade
