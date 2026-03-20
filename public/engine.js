@@ -491,6 +491,40 @@ function renderBg() {
   if(!getSunPos(t)){const mp=(t<12)?(t+12):(t-12),ma=(mp-6)/12*Math.PI;if(ma>0&&ma<Math.PI){const mx=Math.floor(WORLD_W*0.15+(WORLD_W*0.7)*((mp-6)/12)-VP.x),my=Math.floor(HORIZON-Math.sin(ma)*55-VP.y);if(mx>-15&&mx<PW+15&&my>0&&my<hS){const R=7;for(let r=R+8;r>R;r--){bgCtx.fillStyle=`rgba(180,200,230,${0.04*(1-(r-R)/8)*sb})`;for(let dy=-r;dy<=r;dy++){const hw=Math.floor(Math.sqrt(r*r-dy*dy)),py=my+dy;if(py>=0&&py<hS)bgCtx.fillRect(mx-hw,py,hw*2,1);}}bgCtx.fillStyle=rgb([220,225,235]);for(let dy=-R;dy<=R;dy++)for(let dx=-R;dx<=R;dx++)if(dx*dx+dy*dy<=R*R&&my+dy>=0&&my+dy<hS)bgCtx.fillRect(mx+dx,my+dy,1,1);bgCtx.fillStyle=rgb([195,200,210]);bgCtx.fillRect(mx-2,my-1,2,2);bgCtx.fillRect(mx+2,my+1,1,1);bgCtx.fillRect(mx-1,my+2,2,1);}}}}
   // Hills
   for(let pass=0;pass<2;pass++){const hcBase=pass===0?[70,55,40]:[60,48,32];for(let px=0;px<PW;px++){const wx=wrapX(px+VP.x),phase=pass*2.1,hh=4+Math.sin(wx*0.015+phase)*3+Math.sin(wx*0.04+phase)*1.5+Math.sin(wx*0.007+phase)*5,hTop=Math.floor(hS-hh);for(let py=hTop;py<hS;py++){if(py>=0&&py<PH){const ft=(py-hTop)/(hS-hTop),base=lerpColor(hcBase,[85,70,38],ft);bgCtx.fillStyle=rgb([Math.round(base[0]*amb),Math.round(base[1]*amb),Math.round(base[2]*amb)]);bgCtx.fillRect(px,py,1,1);}}}}
+  // Kopjes (rock outcrops on the horizon - iconic savanna features)
+  const kopjePositions = [
+    { wx: 280, w: 12, h: 8 }, // small rocky bump
+    { wx: 520, w: 18, h: 12 }, // larger kopje
+    { wx: 680, w: 8, h: 6 },  // distant small one
+  ];
+  for (const kp of kopjePositions) {
+    const ksx = worldToScreenX(kp.wx);
+    if (ksx < -20 || ksx > PW + 20) continue;
+    const kc = [Math.round(55 * amb), Math.round(48 * amb), Math.round(38 * amb)];
+    // Rocky shape: wider base, irregular top
+    for (let dy = 0; dy < kp.h; dy++) {
+      const t = dy / kp.h; // 0=top, 1=base
+      const w = Math.floor(kp.w * (0.4 + t * 0.6)); // narrow top, wide base
+      const irregularity = Math.round((pcgHash(kp.wx + dy, dy, 7654) - 0.5) * 3);
+      const py = hS - kp.h + dy;
+      if (py >= 0 && py < PH) {
+        // Slightly lighter on top
+        const shade = 1 - t * 0.2;
+        bgCtx.fillStyle = rgb([Math.round(kc[0] * shade), Math.round(kc[1] * shade), Math.round(kc[2] * shade)]);
+        bgCtx.fillRect(ksx - Math.floor(w / 2) + irregularity, py, w, 1);
+      }
+    }
+    // Highlight on sun-facing side
+    const kpSun = getSunPos(t);
+    if (kpSun) {
+      const side = kpSun.x > kp.wx ? 1 : -1;
+      bgCtx.fillStyle = `rgba(180,160,120,${0.08 * amb})`;
+      for (let dy = 1; dy < kp.h - 1; dy++) {
+        const py = hS - kp.h + dy;
+        if (py >= 0 && py < PH) bgCtx.fillRect(ksx + side * Math.floor(kp.w * 0.3), py, 2, 1);
+      }
+    }
+  }
   // Treeline
   if(hS>0){bgCtx.fillStyle=`rgba(${Math.round(35*amb)},${Math.round(42*amb)},${Math.round(20*amb)},0.6)`;for(let px=0;px<PW;px++){const wx=wrapX(px+VP.x),th=2+Math.sin(wx*0.08)*1.5+Math.sin(wx*0.2)*0.8+(Math.sin(wx*0.35)>0.3?2:0),ty=Math.floor(hS-th);if(ty>=0&&ty<PH)bgCtx.fillRect(px,ty,1,Math.ceil(th));}}
   // Ground
