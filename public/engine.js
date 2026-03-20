@@ -6,7 +6,8 @@ const ctx = canvas.getContext("2d");
 
 // Dynamic viewport: fills the window at a consistent pixel density (~3.3x scale)
 // A 1920x1080 screen → 384x216 pixel art. Wider screen shows more world.
-const PIXEL_SCALE = 4; // screen pixels per game pixel (4 = crisper detail)
+// Responsive pixel scale: higher density on larger screens
+const PIXEL_SCALE = window.innerWidth >= 1024 ? 4 : window.innerWidth >= 600 ? 3 : 2;
 let PW = Math.max(256, Math.floor(window.innerWidth / PIXEL_SCALE));
 let PH = Math.max(144, Math.floor(window.innerHeight / PIXEL_SCALE));
 canvas.width = PW; canvas.height = PH;
@@ -1405,9 +1406,27 @@ function initAudio() {
   scheduleBird();
 }
 
-// Start audio on first user interaction
+// Mute toggle
+let audioMuted = localStorage.getItem('ss_muted') === 'true';
+window._toggleMute = function() {
+  audioMuted = !audioMuted;
+  localStorage.setItem('ss_muted', String(audioMuted));
+  const btn = document.getElementById('mute-btn');
+  if (btn) btn.textContent = audioMuted ? '\u{1F507}' : '\u{1F50A}';
+  if (audioCtx) {
+    if (audioMuted) audioCtx.suspend();
+    else audioCtx.resume();
+  }
+};
+// Init mute button state
+if (audioMuted) {
+  const btn = document.getElementById('mute-btn');
+  if (btn) btn.textContent = '\u{1F507}';
+}
+
+// Start audio on first user interaction (if not muted)
 ['click', 'keydown', 'touchstart'].forEach(ev =>
-  document.addEventListener(ev, () => initAudio(), { once: false })
+  document.addEventListener(ev, () => { if (!audioMuted) initAudio(); }, { once: false })
 );
 
 render();
