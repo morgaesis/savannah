@@ -947,7 +947,32 @@ const fpsEl=document.getElementById("fps");let lastFpsTime=performance.now(),fra
 const LOGIC_HZ=30,LOGIC_DT=1000/LOGIC_HZ;let logicAccumulator=0,lastFrameTime=performance.now();
 renderBg();
 const GRID_CELL=20;
-const spatialGrid={cells:new Map(),clear(){this.cells.clear();},_key(cx,cy){return cx*10000+cy;},insert(e){const cx=Math.floor(e.x/GRID_CELL),cy=Math.floor(e.y/GRID_CELL),k=this._key(cx,cy);if(!this.cells.has(k))this.cells.set(k,[]);this.cells.get(k).push(e);},query(x,y,r){const res=[];for(let cx=Math.floor((x-r)/GRID_CELL);cx<=Math.floor((x+r)/GRID_CELL);cx++)for(let cy=Math.floor((y-r)/GRID_CELL);cy<=Math.floor((y+r)/GRID_CELL);cy++){const c=this.cells.get(this._key(cx,cy));if(c)for(const e of c)res.push(e);}return res;}};
+const GRID_COLS = Math.ceil(WORLD_W / GRID_CELL);
+const spatialGrid = {
+  cells: new Map(),
+  clear() { this.cells.clear(); },
+  _key(cx, cy) { return ((cx % GRID_COLS) + GRID_COLS) % GRID_COLS * 10000 + cy; }, // wrap cx
+  insert(e) {
+    const cx = Math.floor(e.x / GRID_CELL), cy = Math.floor(e.y / GRID_CELL);
+    const k = this._key(cx, cy);
+    if (!this.cells.has(k)) this.cells.set(k, []);
+    this.cells.get(k).push(e);
+  },
+  query(x, y, r) {
+    const res = [];
+    const minCx = Math.floor((x - r) / GRID_CELL);
+    const maxCx = Math.floor((x + r) / GRID_CELL);
+    const minCy = Math.floor((y - r) / GRID_CELL);
+    const maxCy = Math.floor((y + r) / GRID_CELL);
+    for (let cx = minCx; cx <= maxCx; cx++) {
+      for (let cy = minCy; cy <= maxCy; cy++) {
+        const c = this.cells.get(this._key(cx, cy)); // _key wraps cx
+        if (c) for (const e of c) res.push(e);
+      }
+    }
+    return res;
+  }
+};
 
 function logicStep(){logicTick++;spatialGrid.clear();for(const a of animals)if(a.alive)spatialGrid.insert(a);for(const a of animals)a.tick(logicTick);respawnCheck(logicTick);updateDustDevil(logicTick);updateOwl(logicTick);sleepShift(logicTick);if(logicTick%30===0)detectEvents(logicTick);}
 
