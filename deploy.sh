@@ -22,7 +22,7 @@ echo "Restarting service..."
 $SSH "echo '$VM_PASS' | sudo -S systemctl restart africa"
 
 sleep 2
-STATUS=$($SSH "curl -s -o /dev/null -w '%{http_code}' http://localhost:80/")
+STATUS=$($SSH "curl -s -o /dev/null -w '%{http_code}' http://localhost:4680/")
 echo "VM status: HTTP $STATUS"
 
 if [ "$STATUS" = "200" ]; then
