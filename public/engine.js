@@ -948,7 +948,16 @@ function render(){
   // Color grade
   const t=simTime;if(t>17&&t<19.5){ctx.fillStyle=`rgba(200,120,40,${clamp((1-Math.abs(t-18.25)/1.25)*0.06,0,0.06)})`;ctx.fillRect(0,0,PW,PH);}else if(t>5.5&&t<7.5){ctx.fillStyle=`rgba(200,100,80,${clamp((1-Math.abs(t-6.5)/1)*0.04,0,0.04)})`;ctx.fillRect(0,0,PW,PH);}else if(t<5||t>21){ctx.fillStyle='rgba(20,30,60,0.08)';ctx.fillRect(0,0,PW,PH);}
   updateNarration();drawNarration();
-  frameCount++;if(now-lastFpsTime>=1000){fpsEl.textContent=frameCount;frameCount=0;lastFpsTime=now;const popEl=document.getElementById('pop');if(popEl)popEl.textContent=animals.filter(a=>a.alive).length;}
+  frameCount++;if(now-lastFpsTime>=1000){fpsEl.textContent=frameCount;frameCount=0;lastFpsTime=now;
+    const popEl=document.getElementById('pop');
+    if(popEl){
+      const alive=animals.filter(a=>a.alive);
+      const counts={};for(const a of alive)counts[a.type]=(counts[a.type]||0)+1;
+      const icons={zebra:'Z',gazelle:'G',wildebeest:'W',warthog:'H',lion:'L',elephant:'E',giraffe:'R',bird:'B'};
+      const parts=[];for(const[t,c]of Object.entries(counts))parts.push((icons[t]||t[0])+c);
+      popEl.textContent=alive.length+' ('+parts.join(' ')+')';
+    }
+  }
   requestAnimationFrame(render);
 }
 // Pre-rendered window vignette overlay
