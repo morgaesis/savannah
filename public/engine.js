@@ -6,7 +6,7 @@ const ctx = canvas.getContext("2d");
 
 // Dynamic viewport: fills the window at a consistent pixel density (~3.3x scale)
 // A 1920x1080 screen → 384x216 pixel art. Wider screen shows more world.
-const PIXEL_SCALE = 5; // screen pixels per game pixel
+const PIXEL_SCALE = 4; // screen pixels per game pixel (4 = crisper detail)
 let PW = Math.max(256, Math.floor(window.innerWidth / PIXEL_SCALE));
 let PH = Math.max(144, Math.floor(window.innerHeight / PIXEL_SCALE));
 canvas.width = PW; canvas.height = PH;
@@ -97,7 +97,19 @@ window._skipTime = function(hour) {
   localStorage.setItem('ss_simTime', String(simTime));
   localStorage.setItem('ss_savedAt', String(Date.now()));
 };
-function updateTime() { const now = performance.now(), dtReal = (now-lastRealTime)/1000; lastRealTime = now; simTime = (simTime + dtReal*24/dayLengthSec)%24; timeSlider.value = Math.round(simTime*60); const h = Math.floor(simTime), m = Math.floor((simTime-h)*60); timeDisplay.textContent = String(h).padStart(2,'0')+':'+String(m).padStart(2,'0'); }
+function updateTime() {
+  const now = performance.now(), dtReal = (now-lastRealTime)/1000; lastRealTime = now;
+  simTime = (simTime + dtReal*24/dayLengthSec)%24;
+  timeSlider.value = Math.round(simTime*60);
+  const h = Math.floor(simTime), m = Math.floor((simTime-h)*60);
+  const ts = String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
+  timeDisplay.textContent = ts;
+  // Dynamic title with time and period
+  const period = simTime < 5.5 ? 'Night' : simTime < 7 ? 'Dawn' : simTime < 10 ? 'Morning'
+    : simTime < 14 ? 'Midday' : simTime < 17 ? 'Afternoon' : simTime < 19.5 ? 'Sunset'
+    : simTime < 21 ? 'Dusk' : 'Night';
+  document.title = `${ts} ${period} \u2014 African Plain`;
+}
 
 // ── Input System ──
 const inputState = { left:false, right:false, dragging:false, dragStartX:0, dragVpStart:0 };
