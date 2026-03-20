@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>African Plain</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a15; }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      cursor: pointer;
+    }
+    #controls {
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      background: rgba(0,0,0,0.55);
+      color: #bbb;
+      font: 11px/1.5 monospace;
+      padding: 5px 8px;
+      border-radius: 4px;
+      transition: opacity 0.8s ease;
+      z-index: 10;
+      user-select: none;
+    }
+    #controls.collapsed { opacity: 0.15; }
+    #controls.collapsed:hover { opacity: 1; }
+    #ctrl-body { display: block; }
+    #ctrl-body.hidden { display: none; }
+    #controls input[type=range] {
+      width: 70px;
+      height: 8px;
+      vertical-align: middle;
+      accent-color: #a88040;
+    }
+    #controls select {
+      background: rgba(30,30,30,0.8);
+      color: #bbb;
+      border: 1px solid #555;
+      font: 10px monospace;
+      border-radius: 2px;
+      padding: 0 2px;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <div id="controls">
+    <span id="toggle" style="cursor:pointer;">[&minus;]</span>
+    <div id="ctrl-body">
+      <div>fps: <span id="fps">0</span> | <span id="pop">0</span> alive</div>
+      <div>
+        <span id="time-display">18:00</span>
+        <input type="range" id="time-slider" min="0" max="1440" step="1">
+      </div>
+      <div>
+        day:
+        <select id="day-length">
+          <option value="60">1m</option>
+          <option value="300">5m</option>
+          <option value="1800">30m</option>
+          <option value="7200">2h</option>
+          <option value="43200">12h</option>
+          <option value="86400" selected>24h</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <script src="engine.js"></script>
+
+  <script>
+    (function() {
+      const es = new EventSource('/__reload');
+      es.onmessage = function(e) {
+        if (e.data === 'reload') location.reload();
+      };
+    })();
+  </script>
+</body>
+</html>
