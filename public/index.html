@@ -57,6 +57,12 @@
       <div>
         <span id="time-display">18:00</span>
         <input type="range" id="time-slider" min="0" max="1440" step="1">
+        <span id="skip-btns" style="font-size:9px;cursor:pointer;color:#a88040;">
+          <span title="Dawn" onclick="window._skipTime(6)">&#x1F305;</span>
+          <span title="Noon" onclick="window._skipTime(12)">&#x2600;</span>
+          <span title="Sunset" onclick="window._skipTime(17.5)">&#x1F307;</span>
+          <span title="Night" onclick="window._skipTime(21)">&#x1F319;</span>
+        </span>
       </div>
       <div>
         day:

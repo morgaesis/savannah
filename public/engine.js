@@ -36,7 +36,8 @@ const CFG = {
 };
 let WORLD_W = CFG.worldW, WORLD_H = CFG.worldH;
 let HORIZON = Math.floor(WORLD_H * 0.45);
-const VP = { x: 180, y: 70 };
+// VP.y is dynamic: positions horizon at ~52% from top regardless of viewport height
+const VP = { x: 180, get y() { return Math.floor(HORIZON - PH * 0.52); } };
 
 canvas.addEventListener("click", (e) => {
   // Don't trigger fullscreen if user was dragging
@@ -87,6 +88,15 @@ timeSlider.addEventListener("input", () => {
   bgDirty = true;
 });
 setInterval(() => { localStorage.setItem('ss_simTime', String(simTime)); localStorage.setItem('ss_savedAt', String(Date.now())); }, 10000);
+
+// Global time skip (used by buttons and keyboard)
+window._skipTime = function(hour) {
+  simTime = hour;
+  bgDirty = true;
+  timeSlider.value = Math.round(simTime * 60);
+  localStorage.setItem('ss_simTime', String(simTime));
+  localStorage.setItem('ss_savedAt', String(Date.now()));
+};
 function updateTime() { const now = performance.now(), dtReal = (now-lastRealTime)/1000; lastRealTime = now; simTime = (simTime + dtReal*24/dayLengthSec)%24; timeSlider.value = Math.round(simTime*60); const h = Math.floor(simTime), m = Math.floor((simTime-h)*60); timeDisplay.textContent = String(h).padStart(2,'0')+':'+String(m).padStart(2,'0'); }
 
 // ── Input System ──
@@ -100,9 +110,7 @@ document.addEventListener("keydown", e => {
   if (e.key === 'n') {
     const periods = [5.5, 7, 12, 17.5, 20.5];
     const next = periods.find(p => p > simTime + 0.1) || periods[0];
-    simTime = next; bgDirty = true;
-    localStorage.setItem('ss_simTime', String(simTime));
-    localStorage.setItem('ss_savedAt', String(Date.now()));
+    window._skipTime(next);
   }
   // Speed toggle: s = cycle through 1x/60x/300x
   if (e.key === 's' && !e.ctrlKey) {
