@@ -1121,9 +1121,73 @@ function render(){
       const parts=[];for(const[t,c]of Object.entries(counts))parts.push((icons[t]||t[0])+c);
       popEl.textContent=alive.length+' ('+parts.join(' ')+')';
     }
+    // Minimap
+    updateMinimap();
   }
   requestAnimationFrame(render);
 }
+// Minimap: bird's-eye view of the full world
+const minimapEl = document.getElementById('minimap');
+const mmCtx = minimapEl ? minimapEl.getContext('2d') : null;
+const MM_W = 80, MM_H = 24;
+
+function updateMinimap() {
+  if (!mmCtx) return;
+  const amb = getAmbient(simTime);
+  mmCtx.clearRect(0, 0, MM_W, MM_H);
+
+  // Ground
+  const groundY = Math.floor(MM_H * 0.45);
+  mmCtx.fillStyle = `rgba(${Math.round(50*amb)},${Math.round(42*amb)},${Math.round(22*amb)},0.8)`;
+  mmCtx.fillRect(0, groundY, MM_W, MM_H - groundY);
+  // Sky
+  mmCtx.fillStyle = `rgba(${Math.round(20*amb+8)},${Math.round(18*amb+8)},${Math.round(35*amb+15)},0.6)`;
+  mmCtx.fillRect(0, 0, MM_W, groundY);
+
+  // Waterhole
+  const whX = Math.floor(waterHole.x / WORLD_W * MM_W);
+  const whY = Math.floor((waterHole.y - HORIZON) / (WORLD_H - HORIZON) * (MM_H - groundY)) + groundY;
+  mmCtx.fillStyle = `rgba(60,80,120,${0.5 + amb * 0.3})`;
+  mmCtx.fillRect(whX - 1, whY, 3, 1);
+
+  // Trees
+  mmCtx.fillStyle = `rgba(30,50,20,${0.4 + amb * 0.3})`;
+  for (const t of trees) {
+    const tx = Math.floor(t.x / WORLD_W * MM_W);
+    mmCtx.fillRect(tx, groundY - 1, 1, 2);
+  }
+
+  // Animals as colored dots
+  const colors = {
+    zebra: [220,220,220], gazelle: [180,140,80], wildebeest: [70,65,55],
+    warthog: [100,90,75], lion: [200,160,60], elephant: [130,125,115],
+    giraffe: [195,165,100], bird: [60,55,50],
+  };
+  for (const a of animals) {
+    if (!a.alive) continue;
+    const ax = Math.floor(a.x / WORLD_W * MM_W);
+    const c = colors[a.type] || [150,150,150];
+    if (a.brain.flying && a.state !== STATE.PERCH && a.state !== STATE.WALK_GROUND) {
+      // Birds in sky
+      const ay = Math.floor(a.y / HORIZON * groundY);
+      mmCtx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${0.4*amb})`;
+      mmCtx.fillRect(ax, clamp(ay, 0, groundY - 1), 1, 1);
+    } else {
+      // Ground animals
+      const ay = Math.floor((a.y - HORIZON) / (WORLD_H - HORIZON) * (MM_H - groundY)) + groundY;
+      mmCtx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${0.5+amb*0.4})`;
+      mmCtx.fillRect(ax, clamp(ay, groundY, MM_H - 1), 1, 1);
+    }
+  }
+
+  // Viewport indicator (white rectangle outline)
+  const vpX = Math.floor(VP.x / WORLD_W * MM_W);
+  const vpW = Math.floor(PW / WORLD_W * MM_W * (WORLD_W / PW > 1 ? 1 : WORLD_W / PW));
+  mmCtx.strokeStyle = `rgba(255,255,255,${0.3 + amb * 0.2})`;
+  mmCtx.lineWidth = 0.5;
+  mmCtx.strokeRect(vpX, 0, Math.max(2, Math.min(vpW, MM_W)), MM_H);
+}
+
 // Pre-rendered window vignette overlay
 const vigCanvas = document.createElement("canvas");
 vigCanvas.width = PW; vigCanvas.height = PH;
