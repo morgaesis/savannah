@@ -746,6 +746,66 @@ function drawMorningMist(tick) {
 }
 
 function drawSunRays(){const sun=getSunPos(simTime);if(!sun)return;const t=simTime;if(!((t>6&&t<8)||(t>16.5&&t<19)))return;const int=(t<12)?1-Math.abs(t-7)/1:1-Math.abs(t-17.75)/1.25;if(int<=0)return;let sx=worldToScreenX(sun.x),sy=Math.floor(sun.y-VP.y);if(sx<-20)sx=-10;if(sx>PW+20)sx=PW+10;sy=clamp(sy,-10,PH*0.6);const a=getAmbient(simTime),sc=getSunColor(simTime);ctx.fillStyle=`rgb(${sc[0]},${sc[1]},${Math.floor(sc[2]*0.7)})`;for(let i=0;i<7;i++){const ra=(i/7)*0.8-0.4+pcgHash(i,0,9876)*0.15,rw=3+pcgHash(i,1,9876)*8,rl=60+pcgHash(i,2,9876)*80;if(pcgHash(i,3,9876)>0.7)continue;const x1=sx+Math.tan(ra)*10-rw*0.3,x2=sx+Math.tan(ra)*10+rw*0.3,x3=sx+Math.tan(ra)*rl-rw,x4=sx+Math.tan(ra)*rl+rw,y1=sy+5,y2=sy+rl;for(let ry=y1;ry<y2&&ry<PH;ry++){if(ry<0)continue;const rf=(ry-y1)/(y2-y1),lx=Math.floor(lerp(x1,x3,rf)),rx=Math.floor(lerp(x2,x4,rf)),fa=(1-rf)*(1-rf);if(rx>lx&&fa>0.01){ctx.globalAlpha=clamp(int*0.08*a*fa,0,0.08);ctx.fillRect(lx,ry,rx-lx,1);}}}ctx.globalAlpha=1;}
+// Night owl: glides across the sky, silhouette against moon is dramatic
+const owl = { active: false, x: 0, y: 0, vx: 0, frame: 0 };
+
+function updateOwl(tick) {
+  const amb = getAmbient(simTime);
+  if (amb > 0.25) { owl.active = false; return; }
+
+  if (!owl.active) {
+    if (pcgHash(tick & 0x3FF, 0, 3141) < 0.0006) {
+      owl.active = true;
+      const goRight = pcgHash(tick, 1, 3141) > 0.5;
+      owl.x = goRight ? -15 : PW + 15;
+      owl.y = rand(15, (HORIZON - VP.y) * 0.6);
+      owl.vx = goRight ? rand(0.4, 0.7) : rand(-0.7, -0.4);
+      owl.frame = 0;
+    }
+    return;
+  }
+
+  owl.x += owl.vx;
+  owl.y += (pcgHash(Math.floor(owl.x), owl.frame, 3142) - 0.5) * 0.15;
+  owl.frame++;
+
+  if (owl.x < -20 || owl.x > PW + 20) { owl.active = false; return; }
+}
+
+function drawOwl() {
+  if (!owl.active) return;
+  const sx = Math.floor(owl.x), sy = Math.floor(owl.y);
+
+  // Owl silhouette: wider wingspan than regular birds, slower wingbeat
+  const wingPhase = Math.sin(owl.frame * 0.06); // slow, gliding
+  const w = Math.round(wingPhase * 1.5);
+  const facing = owl.vx > 0 ? 1 : -1;
+
+  // Body
+  ctx.fillStyle = 'rgb(15,12,10)';
+  ctx.fillRect(sx, sy, 2, 2); // body (wider than regular bird)
+  ctx.fillRect(sx + facing, sy - 1, 1, 1); // head
+
+  // Wings (wider span)
+  ctx.fillRect(sx - 2, sy - w, 2, 1);
+  ctx.fillRect(sx - 4, sy - w - (w > 0 ? 1 : 0), 2, 1);
+  ctx.fillRect(sx + 2, sy - w, 2, 1);
+  ctx.fillRect(sx + 4, sy - w - (w > 0 ? 1 : 0), 2, 1);
+
+  // Moon silhouette effect: if crossing the moon, owl is BLACK against bright moon
+  const moonP = getMoonPos(simTime);
+  if (moonP) {
+    const mx = Math.floor(moonP.x - VP.x), my = Math.floor(moonP.y - VP.y);
+    const dToMoon = Math.hypot(sx - mx, sy - my);
+    if (dToMoon < 12) {
+      // Very close to moon - the silhouette is dramatic, draw extra dark
+      ctx.fillStyle = 'rgb(5,3,2)';
+      ctx.fillRect(sx - 1, sy - 1, 4, 3);
+      ctx.fillRect(sx - 4, sy - w - 1, 9, 2);
+    }
+  }
+}
+
 function drawEyeShine(){const a=getAmbient(simTime);if(a>0.25||simTime>6&&simTime<18)return;const sa=(0.25-a)/0.25*0.7;for(const an of animals){if(!an.alive||an.brain.flying||an.state===STATE.REST||an.state===STATE.DEAD)continue;const sx=worldToScreenX(an.x),sy=Math.floor(an.y-VP.y);if(sx<-5||sx>PW+5||sy<-5||sy>PH+5)continue;const eX=sx+an.facing*(an.type==='elephant'?8:an.type==='giraffe'?5:an.type==='lion'?7:5),eY=sy-(an.type==='giraffe'?14:an.type==='elephant'?8:5),ip=an.type==='lion';ctx.fillStyle=`rgba(${ip?180:220},${ip?220:160},${ip?80:40},${sa})`;ctx.fillRect(eX,eY,1,1);ctx.fillStyle=`rgba(${ip?180:220},${ip?220:160},${ip?80:40},${sa*0.3})`;ctx.fillRect(eX-1,eY,1,1);ctx.fillRect(eX+1,eY,1,1);}}
 
 // ── Dust Devil ──
@@ -852,7 +912,18 @@ renderBg();
 const GRID_CELL=20;
 const spatialGrid={cells:new Map(),clear(){this.cells.clear();},_key(cx,cy){return cx*10000+cy;},insert(e){const cx=Math.floor(e.x/GRID_CELL),cy=Math.floor(e.y/GRID_CELL),k=this._key(cx,cy);if(!this.cells.has(k))this.cells.set(k,[]);this.cells.get(k).push(e);},query(x,y,r){const res=[];for(let cx=Math.floor((x-r)/GRID_CELL);cx<=Math.floor((x+r)/GRID_CELL);cx++)for(let cy=Math.floor((y-r)/GRID_CELL);cy<=Math.floor((y+r)/GRID_CELL);cy++){const c=this.cells.get(this._key(cx,cy));if(c)for(const e of c)res.push(e);}return res;}};
 
-function logicStep(){logicTick++;spatialGrid.clear();for(const a of animals)if(a.alive)spatialGrid.insert(a);for(const a of animals)a.tick(logicTick);respawnCheck(logicTick);updateDustDevil(logicTick);if(logicTick%30===0)detectEvents(logicTick);}
+function logicStep(){logicTick++;spatialGrid.clear();for(const a of animals)if(a.alive)spatialGrid.insert(a);for(const a of animals)a.tick(logicTick);respawnCheck(logicTick);updateDustDevil(logicTick);updateOwl(logicTick);sleepShift(logicTick);if(logicTick%30===0)detectEvents(logicTick);}
+
+// Sleeping animals occasionally shift position (flip facing)
+function sleepShift(tick) {
+  if (tick % 120 !== 0) return; // check every 4 seconds
+  for (const a of animals) {
+    if (!a.alive || a.state !== STATE.REST) continue;
+    if (pcgHash(tick, Math.floor(a.seed * 100), 2718) < 0.01) {
+      a.facing *= -1; // roll over
+    }
+  }
+}
 
 function render(){
   const now=performance.now(),frameDt=now-lastFrameTime;lastFrameTime=now;updateTime();applyInput();
@@ -871,7 +942,7 @@ function render(){
   }
   drawSunFG();drawWindWaves(logicTick);drawClouds();drawWaterHole(logicTick,animals);drawFgGrass(logicTick);drawDust(logicTick);drawWindSeeds(logicTick);
   const drawList=[];for(const a of animals)if(a.alive||a.state===STATE.DEAD)drawList.push({y:a.y,type:'a',ref:a});for(const t of trees)drawList.push({y:t.y,type:'t',ref:t});for(const s of shrubs)drawList.push({y:s.y,type:'s',ref:s});drawList.sort((a,b)=>a.y-b.y);for(const d of drawList){if(d.type==='a'){drawShadow(d.ref);d.ref.draw(ctx,VP.x,VP.y);}else if(d.type==='t')drawTreeDyn(d.ref);else drawShrubDyn(d.ref);}
-  updateParticles(animals);drawFireflies(logicTick);drawDustDevil(logicTick);drawShootingStars(logicTick);drawDistantLightning(logicTick);drawHeatShimmer(logicTick);drawMorningMist(logicTick);drawSunRays();drawEyeShine();
+  updateParticles(animals);drawFireflies(logicTick);drawDustDevil(logicTick);drawShootingStars(logicTick);drawDistantLightning(logicTick);drawHeatShimmer(logicTick);drawMorningMist(logicTick);drawSunRays();drawOwl();drawEyeShine();
   // Window vignette
   ctx.drawImage(vigCanvas, 0, 0);
   // Color grade
