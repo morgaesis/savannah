@@ -616,7 +616,79 @@ function drawShrubDyn(s){const x=worldToScreenX(s.x),y=Math.floor(s.y-VP.y);if(x
 
 // ── Water, clouds, particles, effects ──
 const ripples=[];
-function drawWaterHole(tick,al){const sx=worldToScreenX(waterHole.x),sy=waterHole.y-VP.y;if(sx<-50||sx>PW+50||sy<-20||sy>PH+20)return;const a=getAmbient(simTime);ctx.fillStyle=`rgba(${Math.round(65*a)},${Math.round(50*a)},${Math.round(28*a)},0.7)`;for(let dy=-(waterHole.ry+3);dy<=waterHole.ry+3;dy++)for(let dx=-(waterHole.rx+4);dx<=waterHole.rx+4;dx++){const nx=dx/(waterHole.rx+4),ny=dy/(waterHole.ry+3);if(nx*nx+ny*ny<=1&&nx*nx+ny*ny>0.6)ctx.fillRect(Math.floor(sx+dx),Math.floor(sy+dy),1,1);}const wc=[Math.round(55*a),Math.round(75*a),Math.round(105*a)],wh=[Math.round(115*a),Math.round(135*a),Math.round(165*a)];for(let dy=-waterHole.ry;dy<=waterHole.ry;dy++)for(let dx=-waterHole.rx;dx<=waterHole.rx;dx++){const nx=dx/waterHole.rx,ny=dy/waterHole.ry;if(nx*nx+ny*ny<=1){let sh=Math.sin((dx+tick*0.025)*0.4)*0.1;for(const r of ripples)sh+=Math.sin(Math.hypot(dx-(r.x-waterHole.x),dy-(r.y-waterHole.y))*1.5-r.age*0.15)*0.15*Math.max(0,1-r.age/60);ctx.fillStyle=rgb(lerpColor(wc,wh,clamp(0.45+sh+(ny<-0.3&&Math.abs(nx)<0.5?0.06*a:0),0,1)));ctx.fillRect(Math.floor(sx+dx),Math.floor(sy+dy),1,1);}}ctx.fillStyle=rgb([Math.round(45*a),Math.round(60*a),Math.round(22*a)]);for(const rx of[-waterHole.rx+3,-waterHole.rx+6,waterHole.rx-5,waterHole.rx-2]){const rsx=Math.floor(sx+rx),rsy=Math.floor(sy-waterHole.ry+1);ctx.fillRect(rsx,rsy-3,1,4);ctx.fillRect(rsx+1,rsy-2,1,3);ctx.fillRect(rsx,rsy-4,1,1);}for(const an of al)if(an.alive&&an.state===STATE.DRINK&&an.frame%40===0)ripples.push({x:an.x,y:an.y,age:0});for(let i=ripples.length-1;i>=0;i--){ripples[i].age++;if(ripples[i].age>60)ripples.splice(i,1);}}
+function drawWaterHole(tick, al) {
+  const sx = worldToScreenX(waterHole.x), sy = waterHole.y - VP.y;
+  if (sx < -50 || sx > PW + 50 || sy < -20 || sy > PH + 20) return;
+  const a = getAmbient(simTime);
+
+  // Muddy banks
+  ctx.fillStyle = `rgba(${Math.round(65*a)},${Math.round(50*a)},${Math.round(28*a)},0.7)`;
+  for (let dy = -(waterHole.ry+3); dy <= waterHole.ry+3; dy++)
+    for (let dx = -(waterHole.rx+4); dx <= waterHole.rx+4; dx++) {
+      const nx = dx/(waterHole.rx+4), ny = dy/(waterHole.ry+3);
+      if (nx*nx+ny*ny <= 1 && nx*nx+ny*ny > 0.6)
+        ctx.fillRect(Math.floor(sx+dx), Math.floor(sy+dy), 1, 1);
+    }
+
+  // Sky/light reflection color
+  const sky = getSkyColors(simTime);
+  const sun = getSunPos(simTime);
+  const moon = !sun ? getMoonPos(simTime) : null;
+  const lightSource = sun || moon;
+  const lightColor = sun ? getSunColor(simTime) : [180, 200, 230]; // moonlight blue-white
+  const lightRefX = lightSource ? clamp(wrapDeltaX(lightSource.x - waterHole.x) / waterHole.rx * 0.3, -0.7, 0.7) : 0;
+
+  // Water body
+  const wc = [Math.round(55*a), Math.round(75*a), Math.round(105*a)];
+  const wh = [Math.round(115*a), Math.round(135*a), Math.round(165*a)];
+  for (let dy = -waterHole.ry; dy <= waterHole.ry; dy++)
+    for (let dx = -waterHole.rx; dx <= waterHole.rx; dx++) {
+      const nx = dx/waterHole.rx, ny = dy/waterHole.ry;
+      if (nx*nx+ny*ny > 1) continue;
+      let sh = Math.sin((dx+tick*0.025)*0.4) * 0.1;
+      for (const r of ripples)
+        sh += Math.sin(Math.hypot(dx-(r.x-waterHole.x), dy-(r.y-waterHole.y))*1.5-r.age*0.15)*0.15*Math.max(0,1-r.age/60);
+
+      // Sky reflection (top half of waterhole)
+      const skyRef = (ny < -0.2 && Math.abs(nx) < 0.6) ? 0.06 * a : 0;
+      // Sky color bleed into water
+      const skyBlend = clamp((1-ny)*0.3, 0, 0.3) * (1-nx*nx);
+      let c = lerpColor(wc, wh, clamp(0.45 + sh + skyRef, 0, 1));
+      c = [c[0] + sky.low[0]*skyBlend*0.15, c[1] + sky.low[1]*skyBlend*0.15, c[2] + sky.low[2]*skyBlend*0.15];
+
+      // Sun/moon reflection spot
+      if (lightSource) {
+        const sd = Math.hypot(nx - lightRefX, ny + 0.15);
+        if (sd < 0.3) {
+          const fade = (0.3-sd)/0.3 * (1 + sh*2);
+          const intensity = sun ? 0.15 : 0.08; // moon dimmer
+          c[0] += lightColor[0] * intensity * fade * a;
+          c[1] += lightColor[1] * intensity * fade * a;
+          c[2] += lightColor[2] * intensity * fade * a;
+        }
+      }
+
+      ctx.fillStyle = rgb([clamp(Math.round(c[0]),0,255), clamp(Math.round(c[1]),0,255), clamp(Math.round(c[2]),0,255)]);
+      ctx.fillRect(Math.floor(sx+dx), Math.floor(sy+dy), 1, 1);
+    }
+
+  // Reeds
+  ctx.fillStyle = rgb([Math.round(45*a), Math.round(60*a), Math.round(22*a)]);
+  for (const rx of [-waterHole.rx+3, -waterHole.rx+6, waterHole.rx-5, waterHole.rx-2]) {
+    const rsx = Math.floor(sx+rx), rsy = Math.floor(sy-waterHole.ry+1);
+    ctx.fillRect(rsx, rsy-3, 1, 4);
+    ctx.fillRect(rsx+1, rsy-2, 1, 3);
+    ctx.fillRect(rsx, rsy-4, 1, 1);
+  }
+
+  // Ripples from drinking
+  for (const an of al) if (an.alive && an.state === STATE.DRINK && an.frame%40 === 0)
+    ripples.push({x: an.x, y: an.y, age: 0});
+  for (let i = ripples.length-1; i >= 0; i--) {
+    ripples[i].age++;
+    if (ripples[i].age > 60) ripples.splice(i, 1);
+  }
+}
 
 const clouds=[];for(let i=0;i<5;i++){const w=randInt(18,40),puffs=[];for(let j=0;j<randInt(3,6);j++){const pw=randInt(6,Math.floor(w*0.6)),ph=randInt(3,6);puffs.push({dx:randInt(-2,w-pw+2),dy:randInt(-ph+2,2),w:pw,h:ph});}clouds.push({x:rand(0,WORLD_W),y:rand(15,HORIZON*0.35),w,speed:rand(0.008,0.025),puffs});}
 function drawClouds(){const a=getAmbient(simTime);if(a<0.1)return;const sun=getSunPos(simTime),t=simTime;let cr,cg,cb;if(t<7||t>17.5){cr=240;cg=180;cb=140;}else if(t>10&&t<15){cr=235;cg=235;cb=240;}else{cr=240;cg=220;cb=210;}for(const c of clouds){c.x=wrapX(c.x+c.speed);const sx=worldToScreenX(c.x),sy=Math.floor(c.y-VP.y);if(sx<-60||sx>PW+60||sy<-20||sy>PH)continue;if(sun){ctx.fillStyle=`rgba(0,0,0,${0.04*a})`;ctx.fillRect(sx+Math.round(wrapDeltaX(c.x-sun.x)*0.04),HORIZON-VP.y+5,c.w,3);}for(const p of c.puffs){const px=sx+p.dx,py=sy+p.dy;ctx.fillStyle=`rgba(${Math.round(cr*0.7)},${Math.round(cg*0.65)},${Math.round(cb*0.6)},${0.2*a})`;ctx.fillRect(px,py+Math.floor(p.h*0.5),p.w,Math.ceil(p.h*0.5));ctx.fillStyle=`rgba(${cr},${cg},${cb},${0.3*a})`;ctx.fillRect(px+1,py+1,p.w-2,p.h-2);ctx.fillStyle=`rgba(255,${Math.min(255,cg+15)},${Math.min(255,cb+10)},${0.35*a})`;ctx.fillRect(px+1,py,p.w-2,2);ctx.fillStyle=`rgba(255,255,${Math.min(255,cb+30)},${0.18*a})`;ctx.fillRect(px+3,py-1,Math.max(1,p.w-6),1);}}}
