@@ -1397,6 +1397,38 @@ for (let i = 0; i < 8; i++) {
   });
 }
 
+// Animal calls: visible sound ripples from vocalizing animals
+const animalCalls = [];
+function updateAnimalCalls(tick) {
+  // Spawn calls from herd animals occasionally
+  for (const a of animals) {
+    if (!a.alive || a.brain.flying || a.state === STATE.REST || a.state === STATE.DEAD) continue;
+    if (a.type !== 'zebra' && a.type !== 'wildebeest' && a.type !== 'elephant') continue;
+    // Each animal has a unique call interval based on seed
+    const interval = 400 + Math.floor(pcgHash(Math.floor(a.seed * 77), 0, 3456) * 600);
+    if (tick % interval !== Math.floor(a.seed * interval) % interval) continue;
+    animalCalls.push({ x: a.x, y: a.y - 4, age: 0, type: a.type });
+  }
+  // Draw and age
+  const amb = getAmbient(simTime);
+  for (let i = animalCalls.length - 1; i >= 0; i--) {
+    const c = animalCalls[i];
+    c.age++;
+    if (c.age > 25) { animalCalls.splice(i, 1); continue; }
+    const sx = worldToScreenX(c.x), sy = Math.floor(c.y - VP.y);
+    if (sx < -20 || sx > PW + 20 || sy < -10 || sy > PH) continue;
+    const r = c.age * 0.6;
+    const fade = 1 - c.age / 25;
+    const alpha = fade * 0.12 * amb;
+    ctx.strokeStyle = `rgba(180,170,140,${alpha})`;
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.arc(sx, sy, r, -0.8, 0.8); // partial arc (not full circle — directional call)
+    ctx.stroke();
+  }
+  if (animalCalls.length > 20) animalCalls.splice(0, animalCalls.length - 20);
+}
+
 function drawCrickets(tick) {
   const amb = getAmbient(simTime);
   if (amb > 0.3) return; // only at night
@@ -1816,7 +1848,7 @@ function render(){
   }
   drawSunFG();drawWindWaves(logicTick);drawClouds();drawWaterHole(logicTick,animals);updateFootprints(animals);drawFgGrass(logicTick);drawDust(logicTick);drawWindSeeds(logicTick);
   const drawList=[];for(const a of animals)if(a.alive||a.state===STATE.DEAD)drawList.push({y:a.y,type:'a',ref:a});for(const t of trees)drawList.push({y:t.y,type:'t',ref:t});for(const s of shrubs)drawList.push({y:s.y,type:'s',ref:s});drawList.sort((a,b)=>a.y-b.y);for(const d of drawList){if(d.type==='a'){drawShadow(d.ref);d.ref.draw(ctx,VP.x,VP.y);drawRimLight(d.ref);drawExhaustion(d.ref);}else if(d.type==='t')drawTreeDyn(d.ref);else drawShrubDyn(d.ref);}
-  updateParticles(animals);drawFireflies(logicTick);drawCrickets(logicTick);drawDustDevil(logicTick);drawShootingStars(logicTick);drawDistantLightning(logicTick);drawHeatShimmer(logicTick);drawMorningMist(logicTick);drawSunRays();drawVultures();drawOwl();drawEyeShine();
+  updateParticles(animals);drawFireflies(logicTick);drawCrickets(logicTick);updateAnimalCalls(logicTick);drawDustDevil(logicTick);drawShootingStars(logicTick);drawDistantLightning(logicTick);drawHeatShimmer(logicTick);drawMorningMist(logicTick);drawSunRays();drawVultures();drawOwl();drawEyeShine();
   // Window vignette
   ctx.drawImage(vigCanvas, 0, 0);
   // Color grade
