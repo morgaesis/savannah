@@ -2274,7 +2274,7 @@ function sleepShift(tick) {
   }
 }
 
-function render(){
+function render(){ try {
   const now=performance.now(),frameDt=now-lastFrameTime;lastFrameTime=now;updateTime();applyInput();
   logicAccumulator+=frameDt;let steps=0;while(logicAccumulator>=LOGIC_DT&&steps<4){logicStep();logicAccumulator-=LOGIC_DT;steps++;}if(logicAccumulator>LOGIC_DT*4)logicAccumulator=0;
   const timeDelta=Math.abs(simTime-lastBgTime),vpDelta=Math.abs(wrapDeltaX(VP.x-lastBgVpx));if(timeDelta>0.008||timeDelta>23.9||vpDelta>0.5||bgDirty)renderBg();
@@ -2326,6 +2326,7 @@ function render(){
     localStorage.setItem('ss_visited', '1');
     setTimeout(() => showNarration('Press ? for controls'), 3000);
   }
+  } catch(e) { console.error('render error:', e); }
   requestAnimationFrame(render);
 }
 // Minimap: bird's-eye view of the full world
