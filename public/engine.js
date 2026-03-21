@@ -105,7 +105,8 @@ const WORLD_SEED = _qSeed ? Number(_qSeed) : Math.floor(Math.random() * 100000);
 // Seeded random replacement (used for animal spawning when seed is set)
 let _seededIdx = 0;
 const seededRand = (lo, hi) => lo + pcgHash(_seededIdx++, WORLD_SEED, 31337) * (hi - lo);
-if (_qSeed) { window._rand = rand; rand = seededRand; } // override rand when seed is set
+if (_qSeed) { window._rand = rand; rand = seededRand; }
+{ const sdEl = document.getElementById('seed-display'); if (sdEl) sdEl.textContent = '#' + WORLD_SEED; }
 
 // ── Time System ──
 const savedDayLen = localStorage.getItem('ss_dayLength');
