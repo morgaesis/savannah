@@ -1610,7 +1610,28 @@ function drawOwl() {
   }
 }
 
-function drawEyeShine(){const a=getAmbient(simTime);if(a>0.25||simTime>6&&simTime<18)return;const sa=(0.25-a)/0.25*0.7;for(const an of animals){if(!an.alive||an.brain.flying||an.state===STATE.REST||an.state===STATE.DEAD)continue;const sx=worldToScreenX(an.x),sy=Math.floor(an.y-VP.y);if(sx<-40||sx>PW+40||sy<-20||sy>PH+20)continue;const eX=sx+an.facing*(an.type==='elephant'?8:an.type==='giraffe'?5:an.type==='lion'?7:5),eY=sy-(an.type==='giraffe'?14:an.type==='elephant'?8:5),ip=an.type==='lion';ctx.fillStyle=`rgba(${ip?180:220},${ip?220:160},${ip?80:40},${sa})`;ctx.fillRect(eX,eY,1,1);ctx.fillStyle=`rgba(${ip?180:220},${ip?220:160},${ip?80:40},${sa*0.3})`;ctx.fillRect(eX-1,eY,1,1);ctx.fillRect(eX+1,eY,1,1);}}
+function drawEyeShine(){const a=getAmbient(simTime);if(a>0.25||simTime>6&&simTime<18)return;const sa=(0.25-a)/0.25*0.7;
+  for(const an of animals){
+    if(!an.alive||an.brain.flying||an.state===STATE.REST||an.state===STATE.DEAD)continue;
+    const sx=worldToScreenX(an.x),sy=Math.floor(an.y-VP.y);
+    if(sx<-40||sx>PW+40||sy<-20||sy>PH+20)continue;
+    const eX=sx+an.facing*(an.type==='elephant'?8:an.type==='giraffe'?5:an.type==='lion'?7:5);
+    const eY=sy-(an.type==='giraffe'?14:an.type==='elephant'?8:5);
+    const isLion=an.type==='lion';
+    // Lions: brighter, greenish-yellow, paired eyes visible
+    const bright = isLion ? sa * 1.3 : sa;
+    const r = isLion ? 160 : 220, g = isLion ? 230 : 160, b = isLion ? 60 : 40;
+    ctx.fillStyle=`rgba(${r},${g},${b},${clamp(bright,0,1)})`;
+    ctx.fillRect(eX,eY,1,1);
+    // Second eye (visible when facing viewer = facing toward camera side)
+    if (isLion || an.type === 'elephant') {
+      ctx.fillRect(eX + an.facing * -2, eY, 1, 1);
+    }
+    // Glow halo
+    ctx.fillStyle=`rgba(${r},${g},${b},${bright*0.25})`;
+    ctx.fillRect(eX-1,eY,1,1); ctx.fillRect(eX+1,eY,1,1);
+  }
+}
 
 // ── Dust Devil ──
 const dustDevil={active:false,x:0,y:0,vx:0,life:0,maxLife:0,size:0};
