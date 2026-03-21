@@ -37,6 +37,7 @@ npx serve dist    # or any static host
 | `t` | Time of day (hours, 0-24) | `?t=17.5` (sunset) |
 | `seed` | World seed (deterministic layout) | `?seed=7742` |
 | `speed` | Day length in seconds | `?speed=300` (5 min days) |
+| `vp` | Viewport x position (0-800) | `?vp=400` (center of world) |
 
 ## Controls
 

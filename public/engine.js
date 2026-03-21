@@ -57,7 +57,7 @@ const CFG = {
 let WORLD_W = CFG.worldW, WORLD_H = CFG.worldH;
 let HORIZON = Math.floor(WORLD_H * 0.45);
 // VP.y is dynamic: positions horizon at ~52% from top regardless of viewport height
-const VP = { x: 180, get y() { return Math.floor(HORIZON - PH * 0.52); } };
+const VP = { x: _qVP ? Number(_qVP) : 180, get y() { return Math.floor(HORIZON - PH * 0.52); } };
 
 canvas.addEventListener("click", (e) => {
   // Don't trigger fullscreen if user was dragging
@@ -99,6 +99,7 @@ const _urlParams = new URLSearchParams(window.location.search);
 const _qTime = _urlParams.get('t');
 const _qSeed = _urlParams.get('seed');
 const _qSpeed = _urlParams.get('speed');
+const _qVP = _urlParams.get('vp'); // viewport x position
 
 // Master seed: affects world generation and animal spawning
 const WORLD_SEED = _qSeed ? Number(_qSeed) : Math.floor(Math.random() * 100000);
@@ -2014,7 +2015,8 @@ window._toggleMute = function() {
 // Share: copy URL with current time and seed to clipboard
 window._shareScene = function() {
   const t = Math.round(simTime * 100) / 100;
-  const url = `${location.origin}${location.pathname}?t=${t}&seed=${WORLD_SEED}`;
+  const vp = Math.round(VP.x);
+  const url = `${location.origin}${location.pathname}?t=${t}&seed=${WORLD_SEED}&vp=${vp}`;
   navigator.clipboard.writeText(url).then(() => {
     showNarration('Scene link copied');
     const btn = document.getElementById('share-btn');
