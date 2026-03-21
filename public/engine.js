@@ -1779,6 +1779,37 @@ function initAudio() {
     windFilter.frequency.linearRampToValueAtTime(250 + amb * 300, audioCtx.currentTime + 1);
   }, 2000);
 
+  // Cicada buzz: continuous droning during hot midday (10:00-15:00)
+  let cicadaOsc = null, cicadaGain = null;
+  function updateCicada() {
+    const isHot = simTime > 10 && simTime < 15;
+    const intensity = isHot ? 1 - Math.abs(simTime - 12.5) / 2.5 : 0;
+    if (intensity > 0.05 && !cicadaOsc) {
+      cicadaOsc = audioCtx.createOscillator();
+      cicadaGain = audioCtx.createGain();
+      cicadaOsc.type = 'sawtooth';
+      cicadaOsc.frequency.value = 4200 + Math.random() * 800;
+      // Add tremolo via modulator
+      const mod = audioCtx.createOscillator();
+      const modGain = audioCtx.createGain();
+      mod.frequency.value = 15 + Math.random() * 10; // rapid pulsing
+      modGain.gain.value = 0.008;
+      mod.connect(modGain).connect(cicadaGain.gain);
+      mod.start();
+      cicadaGain.gain.value = 0;
+      cicadaOsc.connect(cicadaGain).connect(master);
+      cicadaOsc.start();
+    }
+    if (cicadaGain) {
+      cicadaGain.gain.linearRampToValueAtTime(intensity * 0.012, audioCtx.currentTime + 2);
+    }
+    if (intensity <= 0.05 && cicadaOsc) {
+      try { cicadaOsc.stop(); } catch(e) {}
+      cicadaOsc = null; cicadaGain = null;
+    }
+  }
+  setInterval(updateCicada, 3000);
+
   scheduleCricket();
   scheduleBird();
 }
