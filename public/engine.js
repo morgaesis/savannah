@@ -409,7 +409,31 @@ function scanForThreat(self, animals) {
 
 function propagateAlarm(source, threat, animals) { let alerted=0; for(const a of animals){if(a===source||!a.alive||a.type!==source.type)continue;const d=dist(source,a);if(d<70){a.memory.fear=Math.min(65,a.memory.fear+8*(1-d/70));a.memory.threats.push({x:threat.x,y:threat.y,time:source._tick});alerted++;}} if(alerted>=2)spawnDustBurst(source.x,source.y,alerted*2,8); }
 
-function* goToWater(self) { for(let i=0;i<600&&self.alive;i++){const dir=dirFrom(self,waterHole);if(dir.d<15){self.state=STATE.DRINK;self.targetVx=0;self.targetVy=0;for(let j=0,dur=randInt(200,500);j<dur;j++){self.memory.thirst=Math.max(0,self.memory.thirst-0.08);if(self.memory.thirst<=2)break;yield 1;}self.memory.lastWater=self._tick;return;}self.targetVx=dir.dx*self.brain.speed*0.6;self.targetVy=dir.dy*self.brain.speed*0.4;yield 1;} }
+function* goToWater(self) {
+  // Approach a point on the waterhole edge (not center), with slight offset per animal
+  const angle = pcgHash(Math.floor(self.seed * 100), 0, 4567) * Math.PI * 2;
+  const edgeX = waterHole.x + Math.cos(angle) * (waterHole.rx + 4);
+  const edgeY = waterHole.y + Math.sin(angle) * (waterHole.ry + 3);
+  for (let i = 0; i < 600 && self.alive; i++) {
+    const dir = dirFrom(self, { x: edgeX, y: edgeY });
+    if (dir.d < 8) {
+      self.state = STATE.DRINK;
+      self.targetVx = 0; self.targetVy = 0;
+      // Face the water
+      self.facing = wrapDeltaX(waterHole.x - self.x) > 0 ? 1 : -1;
+      for (let j = 0, dur = randInt(200, 500); j < dur; j++) {
+        self.memory.thirst = Math.max(0, self.memory.thirst - 0.08);
+        if (self.memory.thirst <= 2) break;
+        yield 1;
+      }
+      self.memory.lastWater = self._tick;
+      return;
+    }
+    self.targetVx = dir.dx * self.brain.speed * 0.6;
+    self.targetVy = dir.dy * self.brain.speed * 0.4;
+    yield 1;
+  }
+}
 
 function* herdDrift(self, getAnimals) { if(!self.brain.herd){yield 60;return;} const mates=getAnimals().filter(a=>a!==self&&a.type===self.type&&a.alive); if(!mates.length){yield 60;return;} self.state=STATE.WANDER; let cdx=0,cy=0; for(const m of mates){cdx+=wrapDeltaX(m.x-self.x);cy+=m.y;} const cx=wrapX(self.x+cdx/mates.length); cy/=mates.length; const dir=dirFrom(self,{x:cx,y:cy}); if(dir.d>30){self.targetVx=dir.dx*self.brain.speed*0.4+rand(-0.02,0.02);self.targetVy=dir.dy*self.brain.speed*0.15;yield randInt(100,300);}else yield randInt(80,200); }
 
