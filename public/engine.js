@@ -296,6 +296,53 @@ function getMoonlightAlpha(t) {
 function getSunPos(t) { const a=(t-6)/12*Math.PI; if(a<=0||a>=Math.PI)return null; return {x:WORLD_W*0.1+(WORLD_W*0.8)*((t-6)/12),y:HORIZON-Math.sin(a)*65,angle:a}; }
 function getSunColor(t) { if(t<7)return[255,160,60];if(t<9)return lerpColor([255,160,60],[255,240,200],(t-7)/2);if(t<15)return[255,245,210];if(t<17)return lerpColor([255,245,210],[255,180,70],(t-15)/2);return[255,160,50]; }
 
+// ── Seasonal Variation ──
+// Season cycle: full cycle = 72 sim hours (3 in-game days)
+// Wet season = first half, Dry season = second half
+const SEASON_CYCLE_HOURS = 72;
+const WET_DRY_THRESHOLD = 0.5;
+
+function getSeasonProgress(t) {
+  return (t % SEASON_CYCLE_HOURS) / SEASON_CYCLE_HOURS;
+}
+
+function isWetSeason(t) {
+  return getSeasonProgress(t) < WET_DRY_THRESHOLD;
+}
+
+function getSeasonTint(t) {
+  const progress = getSeasonProgress(t);
+  const wetness = progress < WET_DRY_THRESHOLD
+    ? 1 - (progress / WET_DRY_THRESHOLD)
+    : (progress - WET_DRY_THRESHOLD) / WET_DRY_THRESHOLD;
+  return {
+    wetness: 1 - Math.abs(wetness * 2 - 1),
+    isWet: isWetSeason(t),
+    greenShift: isWetSeason(t) ? 1 : 0,
+    dryness: isWetSeason(t) ? 0 : 1
+  };
+}
+
+function getSeasonGrassColors() {
+  const season = getSeasonTint(simTime);
+  const greenBoost = season.wetness * 0.3;
+  const dryColors = [
+    [Math.round(90 + greenBoost * -20), Math.round(75 - greenBoost * 25), 25],
+    [Math.round(80 + greenBoost * -15), Math.round(82 - greenBoost * 30), 28],
+    [Math.round(100 + greenBoost * -25), Math.round(77 - greenBoost * 27), 22],
+    [Math.round(75 + greenBoost * -15), Math.round(62 - greenBoost * 22), 22],
+    [Math.round(85 + greenBoost * -20), Math.round(87 - greenBoost * 32), 30]
+  ];
+  const wetColors = [
+    [Math.round(75 + greenBoost * 15), Math.round(88 + greenBoost * 15), 32],
+    [Math.round(65 + greenBoost * 15), Math.round(95 + greenBoost * 15), 35],
+    [Math.round(80 + greenBoost * 15), Math.round(88 + greenBoost * 15), 30],
+    [Math.round(62 + greenBoost * 12), Math.round(75 + greenBoost * 12), 28],
+    [Math.round(72 + greenBoost * 15), Math.round(100 + greenBoost * 15), 36]
+  ];
+  return season.isWet ? wetColors : dryColors;
+}
+
 // ── World Features ──
 let bgDirty = true;
 let trees=[],shrubs=[],grassTufts=[],rockPoints=[],starPoints=[];
@@ -2303,6 +2350,33 @@ function initAudio() {
     }
   }
   setInterval(updateCicada, 3000);
+
+  // Rain sound: filtered noise that fades with rain intensity
+  let rainNoise = null, rainGain = null;
+  setInterval(() => {
+    if (!audioCtx || audioCtx.state === 'closed') return;
+    if (rain.active && !rainNoise) {
+      rainNoise = audioCtx.createBufferSource();
+      const len = audioCtx.sampleRate * 2;
+      const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      rainNoise.buffer = buf; rainNoise.loop = true;
+      const filt = audioCtx.createBiquadFilter();
+      filt.type = 'bandpass'; filt.frequency.value = 3000; filt.Q.value = 0.3;
+      rainGain = audioCtx.createGain(); rainGain.gain.value = 0;
+      rainNoise.connect(filt).connect(rainGain).connect(master);
+      rainNoise.start();
+    }
+    if (rainGain) {
+      const target = rain.active ? rain.intensity * 0.08 : 0;
+      rainGain.gain.linearRampToValueAtTime(target, audioCtx.currentTime + 1);
+    }
+    if (!rain.active && rainNoise && rainGain && rainGain.gain.value < 0.001) {
+      try { rainNoise.stop(); } catch(e) {}
+      rainNoise = null; rainGain = null;
+    }
+  }, 2000);
 
   scheduleCricket();
   scheduleBird();
