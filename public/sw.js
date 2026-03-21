@@ -1,5 +1,5 @@
-const CACHE = 'savannah-v1';
-const ASSETS = ['/', '/index.html', '/engine.js', '/favicon.svg', '/og.png'];
+const CACHE = 'savannah-v2';
+const ASSETS = ['/', '/index.html', '/engine.js', '/favicon.svg', '/og.png', '/manifest.json'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
