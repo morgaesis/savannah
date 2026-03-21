@@ -1221,6 +1221,28 @@ function getMoonPos(t) {
   return { x: WORLD_W * 0.15 + (WORLD_W * 0.7) * ((mp - 6) / 12), y: HORIZON - Math.sin(ma) * 55 };
 }
 
+// Golden hour rim light: warm highlight on sun-facing edge of animals
+function drawRimLight(an) {
+  if (!an.alive || an.brain.flying) return;
+  const sun = getSunPos(simTime);
+  if (!sun) return;
+  const t = simTime;
+  // Only during golden hour
+  if (t > 8 && t < 16.5) return;
+  const intensity = (t < 8) ? 1 - Math.abs(t - 6.5) / 1.5 : 1 - Math.abs(t - 17.75) / 1.25;
+  if (intensity <= 0.1) return;
+  const sx = worldToScreenX(an.x), sy = Math.floor(an.y - VP.y);
+  if (sx < -10 || sx > PW + 10 || sy < -10 || sy > PH + 10) return;
+  const sunSide = wrapDeltaX(sun.x - an.x) > 0 ? 1 : -1;
+  const h = an.type === 'elephant' ? 8 : an.type === 'giraffe' ? 14 : 5;
+  const alpha = intensity * 0.15;
+  ctx.fillStyle = `rgba(255,180,80,${alpha})`;
+  // Thin warm line on sun-facing edge
+  for (let dy = 0; dy < h; dy++) {
+    ctx.fillRect(sx + sunSide * (an.type === 'elephant' ? 6 : 4), sy - h + dy, 1, 1);
+  }
+}
+
 function drawExhaustion(an) {
   if (!an.alive || an.energy > 0.35) return;
   const sprinting = an.state === STATE.FLEE || an.state === STATE.CHASE;
@@ -1690,7 +1712,7 @@ function render(){
     ctx.fillRect(0, 0, PW, Math.max(0, hS));
   }
   drawSunFG();drawWindWaves(logicTick);drawClouds();drawWaterHole(logicTick,animals);updateFootprints(animals);drawFgGrass(logicTick);drawDust(logicTick);drawWindSeeds(logicTick);
-  const drawList=[];for(const a of animals)if(a.alive||a.state===STATE.DEAD)drawList.push({y:a.y,type:'a',ref:a});for(const t of trees)drawList.push({y:t.y,type:'t',ref:t});for(const s of shrubs)drawList.push({y:s.y,type:'s',ref:s});drawList.sort((a,b)=>a.y-b.y);for(const d of drawList){if(d.type==='a'){drawShadow(d.ref);d.ref.draw(ctx,VP.x,VP.y);drawExhaustion(d.ref);}else if(d.type==='t')drawTreeDyn(d.ref);else drawShrubDyn(d.ref);}
+  const drawList=[];for(const a of animals)if(a.alive||a.state===STATE.DEAD)drawList.push({y:a.y,type:'a',ref:a});for(const t of trees)drawList.push({y:t.y,type:'t',ref:t});for(const s of shrubs)drawList.push({y:s.y,type:'s',ref:s});drawList.sort((a,b)=>a.y-b.y);for(const d of drawList){if(d.type==='a'){drawShadow(d.ref);d.ref.draw(ctx,VP.x,VP.y);drawRimLight(d.ref);drawExhaustion(d.ref);}else if(d.type==='t')drawTreeDyn(d.ref);else drawShrubDyn(d.ref);}
   updateParticles(animals);drawFireflies(logicTick);drawCrickets(logicTick);drawDustDevil(logicTick);drawShootingStars(logicTick);drawDistantLightning(logicTick);drawHeatShimmer(logicTick);drawMorningMist(logicTick);drawSunRays();drawVultures();drawOwl();drawEyeShine();
   // Window vignette
   ctx.drawImage(vigCanvas, 0, 0);
