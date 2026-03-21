@@ -1526,13 +1526,19 @@ function updateMinimap() {
   const amb = getAmbient(simTime);
   mmCtx.clearRect(0, 0, MM_W, MM_H);
 
-  // Ground
+  // Sky (uses actual sky color keyframes)
   const groundY = Math.floor(MM_H * 0.45);
-  mmCtx.fillStyle = `rgba(${Math.round(50*amb)},${Math.round(42*amb)},${Math.round(22*amb)},0.8)`;
-  mmCtx.fillRect(0, groundY, MM_W, MM_H - groundY);
-  // Sky
-  mmCtx.fillStyle = `rgba(${Math.round(20*amb+8)},${Math.round(18*amb+8)},${Math.round(35*amb+15)},0.6)`;
+  const sky = getSkyColors(simTime);
+  const skyMid = sky.mid;
+  mmCtx.fillStyle = rgb([Math.round(skyMid[0]*0.8), Math.round(skyMid[1]*0.8), Math.round(skyMid[2]*0.8)]);
   mmCtx.fillRect(0, 0, MM_W, groundY);
+  // Horizon band
+  const skyLow = sky.low;
+  mmCtx.fillStyle = rgb([Math.round(skyLow[0]*0.6), Math.round(skyLow[1]*0.6), Math.round(skyLow[2]*0.6)]);
+  mmCtx.fillRect(0, groundY - 2, MM_W, 2);
+  // Ground
+  mmCtx.fillStyle = `rgba(${Math.round(50*amb)},${Math.round(42*amb)},${Math.round(22*amb)},0.9)`;
+  mmCtx.fillRect(0, groundY, MM_W, MM_H - groundY);
 
   // Waterhole
   const whX = Math.floor(waterHole.x / WORLD_W * MM_W);
