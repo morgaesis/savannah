@@ -606,6 +606,31 @@ class Animal {
         ctx.fillRect(9, -10, 1, 1);
         ctx.fillRect(8, -9, 1, 1);
       }
+    } else if (this.state === STATE.IDLE && this.frame % 300 < 40) {
+      // Dust bathing: trunk swings up and over, spraying dirt
+      const phase = (this.frame % 300) / 40; // 0-1 through the animation
+      if (phase < 0.4) {
+        // Trunk reaching down to scoop
+        ctx.fillRect(8, -3, 1, 4);
+        ctx.fillRect(9, 1, 1, 1);
+      } else if (phase < 0.7) {
+        // Trunk swinging up
+        ctx.fillRect(8, -6, 1, 3);
+        ctx.fillRect(9, -8, 1, 2);
+        // Dirt particles flying
+        ctx.fillStyle = `rgba(130,110,70,0.6)`;
+        ctx.fillRect(6, -10, 1, 1);
+        ctx.fillRect(3, -11, 1, 1);
+        ctx.fillRect(0, -10, 1, 1);
+        ctx.fillRect(-2, -9, 1, 1);
+      } else {
+        // Trunk settling back down
+        ctx.fillRect(8, -5, 1, 3);
+        ctx.fillRect(9, -3, 1, 2);
+        // Dust settling on back
+        ctx.fillStyle = `rgba(130,110,70,0.3)`;
+        ctx.fillRect(-3, -9, 6, 1);
+      }
     } else {
       const ts = Math.sin(this.frame * 0.03);
       ctx.fillRect(8, -4, 1, 4);
