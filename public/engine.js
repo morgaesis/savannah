@@ -153,24 +153,20 @@ const timeDial = document.getElementById('time-dial');
 const tdCtx = timeDial ? timeDial.getContext('2d') : null;
 function drawTimeDial() {
   if (!tdCtx) return;
-  const cx = 14, cy = 14, r = 12;
-  tdCtx.clearRect(0, 0, 28, 28);
-  // Background circle
+  const cx = 8, cy = 8, r = 7;
+  tdCtx.clearRect(0, 0, 16, 16);
   tdCtx.beginPath(); tdCtx.arc(cx, cy, r, 0, Math.PI * 2);
   tdCtx.fillStyle = 'rgba(40,35,25,0.6)'; tdCtx.fill();
-  tdCtx.strokeStyle = 'rgba(120,100,60,0.4)'; tdCtx.lineWidth = 1; tdCtx.stroke();
-  // Day arc (6:00-18:00 = top half in warm color)
-  tdCtx.beginPath(); tdCtx.arc(cx, cy, r - 2, -Math.PI/2, Math.PI/2);
-  tdCtx.strokeStyle = 'rgba(200,160,60,0.3)'; tdCtx.lineWidth = 2; tdCtx.stroke();
-  // Night arc
-  tdCtx.beginPath(); tdCtx.arc(cx, cy, r - 2, Math.PI/2, -Math.PI/2);
-  tdCtx.strokeStyle = 'rgba(60,70,120,0.3)'; tdCtx.lineWidth = 2; tdCtx.stroke();
-  // Hand (current time position)
+  tdCtx.strokeStyle = 'rgba(120,100,60,0.4)'; tdCtx.lineWidth = 0.5; tdCtx.stroke();
+  tdCtx.beginPath(); tdCtx.arc(cx, cy, r - 1, -Math.PI/2, Math.PI/2);
+  tdCtx.strokeStyle = 'rgba(200,160,60,0.3)'; tdCtx.lineWidth = 1; tdCtx.stroke();
+  tdCtx.beginPath(); tdCtx.arc(cx, cy, r - 1, Math.PI/2, -Math.PI/2);
+  tdCtx.strokeStyle = 'rgba(60,70,120,0.3)'; tdCtx.lineWidth = 1; tdCtx.stroke();
   const angle = (simTime / 24) * Math.PI * 2 - Math.PI / 2;
-  const hx = cx + Math.cos(angle) * (r - 3);
-  const hy = cy + Math.sin(angle) * (r - 3);
+  const hx = cx + Math.cos(angle) * (r - 2);
+  const hy = cy + Math.sin(angle) * (r - 2);
   tdCtx.beginPath(); tdCtx.moveTo(cx, cy); tdCtx.lineTo(hx, hy);
-  tdCtx.strokeStyle = '#d4c080'; tdCtx.lineWidth = 1.5; tdCtx.stroke();
+  tdCtx.strokeStyle = '#d4c080'; tdCtx.lineWidth = 1; tdCtx.stroke();
   // Center dot
   tdCtx.beginPath(); tdCtx.arc(cx, cy, 1.5, 0, Math.PI * 2);
   tdCtx.fillStyle = '#d4c080'; tdCtx.fill();
@@ -579,10 +575,22 @@ class Animal {
     // Wrap X, soft-clamp Y
     if(this.brain.flying&&this.state!==STATE.PERCH&&this.state!==STATE.WALK_GROUND){this.x=wrapX(this.x);if(this.y<15){this.vy+=0.02;this.targetVy=Math.max(this.targetVy,0);}if(this.y>HORIZON-3){this.vy-=0.02;this.targetVy=Math.min(this.targetVy,0);}this.y=clamp(this.y,10,HORIZON);}else{this.x=wrapX(this.x);if(this.y<HORIZON+3){this.vy+=0.01;this.targetVy+=0.003;}else if(this.y>WORLD_H-15){this.vy-=0.01;this.targetVy-=0.003;}this.y=clamp(this.y,HORIZON+1,WORLD_H-5);}
     if(Math.abs(this.vx)>0.02)this.facing=this.vx>0?1:-1;
-    // Seam anti-oscillation: commit to velocity direction near wrap boundary
-    if (nearSeam && Math.abs(this.vx) > 0.01) {
-      // Maintain momentum through the seam — don't let forces reverse us
+    // Seam anti-oscillation: lock velocity direction when crossing the boundary
+    if (nearSeam) {
       this.homeX = this.x;
+      if (!this._seamLock && Math.abs(this.vx) > 0.01) {
+        this._seamLock = Math.sign(this.vx); // lock direction
+        this._seamTimer = 90; // hold for 3 seconds
+      }
+    }
+    if (this._seamTimer > 0) {
+      this._seamTimer--;
+      // Force velocity to maintain the locked direction
+      if (Math.sign(this.vx) !== this._seamLock && Math.abs(this.vx) > 0.005) {
+        this.vx = Math.abs(this.vx) * this._seamLock;
+        this.targetVx = Math.abs(this.targetVx) * this._seamLock;
+      }
+      if (this._seamTimer <= 0) this._seamLock = 0;
     }
     if (Math.abs(wrapDeltaX(this.x - this.homeX)) > WORLD_W * 0.15) {
       this.homeX = this.x;
