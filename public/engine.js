@@ -800,7 +800,9 @@ class Animal {
     ctx.fillRect(-8, -6, 1, 2);
   }
   _sprGiraffe(ctx,wp,m){
-    const hd=this.state===STATE.DRINK?8:this.state===STATE.GRAZE?4:0;
+    // Giraffes browse UP from trees (head raised), graze DOWN only when no tree nearby
+    const nearTree = this.state===STATE.GRAZE && trees.some(t => dist(this, t) < 25);
+    const hd = this.state===STATE.DRINK ? 8 : (nearTree ? -3 : (this.state===STATE.GRAZE ? 4 : 0));
     const l=this._legs(wp*0.8,m);
     // Neck sway when walking (subtle 1px oscillation at the top)
     const neckSway = m ? Math.round(Math.sin(wp * 0.8) * 0.8) : 0;
