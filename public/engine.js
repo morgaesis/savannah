@@ -1553,6 +1553,9 @@ function render(){
     // Minimap
     updateMinimap();
   }
+  // Dismiss loading screen after first frame
+  const loadEl = document.getElementById('loading');
+  if (loadEl) loadEl.style.display = 'none';
   requestAnimationFrame(render);
 }
 // Minimap: bird's-eye view of the full world
