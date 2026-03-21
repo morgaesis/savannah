@@ -1493,10 +1493,15 @@ function updateAnimalCalls(tick) {
   for (const a of animals) {
     if (!a.alive || a.brain.flying || a.state === STATE.REST || a.state === STATE.DEAD) continue;
     if (a.type !== 'zebra' && a.type !== 'wildebeest' && a.type !== 'elephant') continue;
-    // Each animal has a unique call interval based on seed
+    // Elephant trumpet: larger arc when scared or fleeing
+    if (a.type === 'elephant' && (a.state === STATE.FLEE || a.memory.fear > 30) && a.frame % 90 === 0) {
+      animalCalls.push({ x: a.x, y: a.y - 8, age: 0, type: 'trumpet', size: 2.0 });
+      continue;
+    }
+    // Regular call interval
     const interval = 400 + Math.floor(pcgHash(Math.floor(a.seed * 77), 0, 3456) * 600);
     if (tick % interval !== Math.floor(a.seed * interval) % interval) continue;
-    animalCalls.push({ x: a.x, y: a.y - 4, age: 0, type: a.type });
+    animalCalls.push({ x: a.x, y: a.y - 4, age: 0, type: a.type, size: 1.0 });
   }
   // Draw and age
   const amb = getAmbient(simTime);
@@ -1506,7 +1511,8 @@ function updateAnimalCalls(tick) {
     if (c.age > 25) { animalCalls.splice(i, 1); continue; }
     const sx = worldToScreenX(c.x), sy = Math.floor(c.y - VP.y);
     if (sx < -20 || sx > PW + 20 || sy < -10 || sy > PH) continue;
-    const r = c.age * 0.6;
+    const sz = c.size || 1.0;
+    const r = c.age * 0.6 * sz;
     const fade = 1 - c.age / 25;
     const alpha = fade * 0.12 * amb;
     ctx.strokeStyle = `rgba(180,170,140,${alpha})`;
