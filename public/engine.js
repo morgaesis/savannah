@@ -56,16 +56,29 @@ window.addEventListener('orientationchange', debouncedResize);
 document.addEventListener('fullscreenchange', () => setTimeout(resizeCanvas, 100));
 
 // ── Configuration (mutable at runtime via config menu) ──
+// All URL params parsed once at the top to avoid TDZ issues
+const _urlParams = new URLSearchParams(window.location.search);
+
 const CFG = {
   worldW: 800, worldH: 400,
   dustDevilFreq: 0.0003,
   animalCounts: { zebra:5, gazelle:6, wildebeest:5, warthog:3, lion:2, elephant:3, giraffe:2, bird:7 },
 };
-let WORLD_W = CFG.worldW, WORLD_H = CFG.worldH;
+// URL param overrides for config: ?w=400 (world width), ?animals=z10,g8,w6,h4,l3,e4,r3,b10
+const _qW = _urlParams.get('w');
+if (_qW) CFG.worldW = Math.max(400, Number(_qW));
+const _qAnimals = _urlParams.get('animals');
+if (_qAnimals) {
+  const map = {z:'zebra',g:'gazelle',w:'wildebeest',h:'warthog',l:'lion',e:'elephant',r:'giraffe',b:'bird'};
+  for (const part of _qAnimals.split(',')) {
+    const key = map[part[0]]; const val = parseInt(part.slice(1));
+    if (key && !isNaN(val)) CFG.animalCounts[key] = clamp(val, 0, 20);
+  }
+}
+// Ensure world is at least as wide as the viewport (prevents rendering gaps)
+let WORLD_W = Math.max(CFG.worldW, PW + 100), WORLD_H = CFG.worldH;
 let HORIZON = Math.floor(WORLD_H * 0.45);
 // VP.y is dynamic: positions horizon at ~52% from top regardless of viewport height
-// Query params (parsed early so VP can use them)
-const _urlParams = new URLSearchParams(window.location.search);
 const _qVP = _urlParams.get('vp');
 const VP = { x: _qVP ? Number(_qVP) : 180, get y() { return Math.floor(HORIZON - PH * 0.52); } };
 
@@ -1034,14 +1047,25 @@ function renderBg() {
   // Treeline
   if(hS>0){bgCtx.fillStyle=`rgba(${Math.round(35*amb)},${Math.round(42*amb)},${Math.round(20*amb)},0.6)`;for(let px=0;px<PW;px++){const wx=wrapX(px+VP.x),th=2+Math.sin(wx*0.08)*1.5+Math.sin(wx*0.2)*0.8+(Math.sin(wx*0.35)>0.3?2:0),ty=Math.floor(hS-th);if(ty>=0&&ty<PH)bgCtx.fillRect(px,ty,1,Math.ceil(th));}}
   // Ground
-  // Ground: fast line-by-line with per-line noise
-  const gY=Math.max(0,hS);
-  for(let y=gY;y<PH;y++){
-    const wy=y+VP.y,ft=(wy-HORIZON)/(WORLD_H-HORIZON);
-    const r=lerp(85,55,ft)*amb,g=lerp(70,45,ft)*amb,b=lerp(38,22,ft)*amb;
-    const n=(pcgHash(0,wy,WORLD_SEED+1001)-0.5)*6;
-    bgCtx.fillStyle=rgb([clamp(r+n,0,255),clamp(g+n,0,255),clamp(b+n*0.5,0,255)]);
-    bgCtx.fillRect(0,y,PW,1);
+  // Ground: per-pixel noise via ImageData (1 hash per pixel, no banding)
+  const gY = Math.max(0, hS);
+  if (gY < PH) {
+    const gH = PH - gY;
+    const id = bgCtx.getImageData(0, gY, PW, gH), d = id.data;
+    for (let y = 0; y < gH; y++) {
+      const wy = (y + gY) + VP.y, ft = (wy - HORIZON) / (WORLD_H - HORIZON);
+      const br = lerp(85, 55, ft) * amb, bg = lerp(70, 45, ft) * amb, bb = lerp(38, 22, ft) * amb;
+      for (let x = 0; x < PW; x++) {
+        const wx = wrapX(x + VP.x);
+        const n = (pcgHash(wx, wy, WORLD_SEED + 1001) - 0.5) * 12;
+        const idx = (y * PW + x) * 4;
+        d[idx] = clamp(br + n * 0.5, 0, 255);
+        d[idx + 1] = clamp(bg + n * 0.5, 0, 255);
+        d[idx + 2] = clamp(bb + n * 0.3, 0, 255);
+        d[idx + 3] = 255;
+      }
+    }
+    bgCtx.putImageData(id, 0, gY);
   }
   // Trampled ground around waterhole (darker, muddier from animal traffic)
   const whScrX = worldToScreenX(waterHole.x), whScrY = Math.floor(waterHole.y - VP.y);
