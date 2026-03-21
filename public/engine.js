@@ -942,6 +942,21 @@ function getMoonPos(t) {
   return { x: WORLD_W * 0.15 + (WORLD_W * 0.7) * ((mp - 6) / 12), y: HORIZON - Math.sin(ma) * 55 };
 }
 
+function drawExhaustion(an) {
+  if (!an.alive || an.energy > 0.35) return;
+  const sprinting = an.state === STATE.FLEE || an.state === STATE.CHASE;
+  if (!sprinting) return;
+  const sx = worldToScreenX(an.x), sy = Math.floor(an.y - VP.y);
+  if (sx < -10 || sx > PW + 10 || sy < -10 || sy > PH + 10) return;
+  const pant = an.frame % 20;
+  if (pant < 10) {
+    const alpha = (1 - an.energy / 0.35) * 0.4 * (1 - pant / 10);
+    ctx.fillStyle = `rgba(220,220,220,${alpha})`;
+    ctx.fillRect(sx + an.facing * 3, sy - 8 - pant, 1, 1);
+    if (an.energy < 0.15) ctx.fillRect(sx + an.facing * 2, sy - 6 - Math.floor(pant * 0.7), 1, 1);
+  }
+}
+
 function drawShadow(an) {
   if (!an.alive || an.brain.flying) return;
   const sx = worldToScreenX(an.x), sy = Math.floor(an.y - VP.y);
@@ -1291,7 +1306,7 @@ function showNarration(text){if(narration.cooldown>0)return;narration.text=text;
 function updateNarration(){if(narration.cooldown>0)narration.cooldown--;if(narration.timer<=0)return;narration.timer--;if(narration.timer>210)narration.alpha=(240-narration.timer)/30;else if(narration.timer<60)narration.alpha=narration.timer/60;else narration.alpha=1;}
 function drawNarration(){if(narration.timer<=0||narration.alpha<=0)return;ctx.save();ctx.globalAlpha=narration.alpha*0.85;ctx.font='9px "Segoe UI",system-ui,sans-serif';ctx.textAlign='center';ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillText(narration.text,PW/2+1,PH-15+1);ctx.fillText(narration.text,PW/2-1,PH-15-1);ctx.fillStyle='#e8dcc0';ctx.fillText(narration.text,PW/2,PH-15);ctx.restore();}
 let lastNarrationTick=0;
-function detectEvents(tk){if(tk-lastNarrationTick<600)return;const h=Math.floor(simTime),m=Math.floor((simTime%1)*60);if(h===5&&m>=15&&m<18){showNarration('First light touches the horizon');lastNarrationTick=tk;return;}if(h===5&&m>=30&&m<33){showNarration('Birds stir in the trees');lastNarrationTick=tk;return;}if(h===6&&m<3){showNarration('Dawn breaks through the mist');lastNarrationTick=tk;return;}if(h===18&&m<3){showNarration('The sun sinks toward the horizon');lastNarrationTick=tk;return;}if(h===20&&m>=30&&m<33){showNarration('Night settles over the plain');lastNarrationTick=tk;return;}for(const a of animals){if(!a.alive)continue;if(a.type==='lion'&&a.state===STATE.STALK){showNarration('A lion begins to stalk...');lastNarrationTick=tk;return;}if(a.type==='lion'&&a.state===STATE.CHASE){showNarration('The lion charges!');lastNarrationTick=tk;return;}}const fl=animals.filter(a=>a.alive&&a.state===STATE.FLEE);if(fl.length>=3){const names={zebra:'Zebras',gazelle:'Gazelles',wildebeest:'Wildebeest',warthog:'Warthogs'};showNarration((names[fl[0].type]||'The herd')+' scatter in alarm!');lastNarrationTick=tk;return;}if(animals.filter(a=>a.alive&&a.state===STATE.DRINK).length>=2){showNarration('Animals gather at the waterhole');lastNarrationTick=tk;return;}if(animals.filter(a=>a.alive&&a.state===STATE.GRAZE).length>=6&&tk%1800<30){showNarration('The plain is still');lastNarrationTick=tk;return;}if((simTime<5.5||simTime>20.5)&&animals.filter(a=>a.alive&&a.state===STATE.REST).length>=10&&tk%2400<30){showNarration('The savanna sleeps');lastNarrationTick=tk;return;}}
+function detectEvents(tk){if(tk-lastNarrationTick<600)return;const h=Math.floor(simTime),m=Math.floor((simTime%1)*60);if(h===5&&m>=15&&m<18){showNarration('First light touches the horizon');lastNarrationTick=tk;return;}if(h===5&&m>=30&&m<33){showNarration('Birds stir in the trees');lastNarrationTick=tk;return;}if(h===6&&m<3){showNarration('Dawn breaks through the mist');lastNarrationTick=tk;return;}if(h===18&&m<3){showNarration('The sun sinks toward the horizon');lastNarrationTick=tk;return;}if(h===20&&m>=30&&m<33){showNarration('Night settles over the plain');lastNarrationTick=tk;return;}for(const a of animals){if(!a.alive)continue;if(a.type==='lion'&&a.state===STATE.STALK){showNarration('A lion begins to stalk...');lastNarrationTick=tk;return;}if(a.type==='lion'&&a.state===STATE.CHASE){showNarration(a.energy<0.3?'The lion tires...':'The lion charges!');lastNarrationTick=tk;return;}}const fl=animals.filter(a=>a.alive&&a.state===STATE.FLEE);if(fl.length>=3){const names={zebra:'Zebras',gazelle:'Gazelles',wildebeest:'Wildebeest',warthog:'Warthogs'};showNarration((names[fl[0].type]||'The herd')+' scatter in alarm!');lastNarrationTick=tk;return;}if(animals.filter(a=>a.alive&&a.state===STATE.DRINK).length>=2){showNarration('Animals gather at the waterhole');lastNarrationTick=tk;return;}if(animals.filter(a=>a.alive&&a.state===STATE.GRAZE).length>=6&&tk%1800<30){showNarration('The plain is still');lastNarrationTick=tk;return;}if((simTime<5.5||simTime>20.5)&&animals.filter(a=>a.alive&&a.state===STATE.REST).length>=10&&tk%2400<30){showNarration('The savanna sleeps');lastNarrationTick=tk;return;}}
 
 // ── Config Menu ──
 function createConfigMenu(){const ov=document.createElement('div');ov.id='config-overlay';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100;display:none;align-items:center;justify-content:center;';const dl=document.createElement('div');dl.style.cssText='background:#1a1a1a;border:1px solid #444;border-radius:8px;padding:16px 20px;color:#ccc;font:12px/1.8 monospace;min-width:280px;max-width:340px;max-height:80vh;overflow-y:auto;';const ti=document.createElement('div');ti.style.cssText='font-size:14px;font-weight:bold;margin-bottom:10px;color:#e8dcc0;';ti.textContent='Settings';dl.appendChild(ti);
@@ -1365,7 +1380,7 @@ function render(){
     ctx.fillRect(0, 0, PW, Math.max(0, hS));
   }
   drawSunFG();drawWindWaves(logicTick);drawClouds();drawWaterHole(logicTick,animals);updateFootprints(animals);drawFgGrass(logicTick);drawDust(logicTick);drawWindSeeds(logicTick);
-  const drawList=[];for(const a of animals)if(a.alive||a.state===STATE.DEAD)drawList.push({y:a.y,type:'a',ref:a});for(const t of trees)drawList.push({y:t.y,type:'t',ref:t});for(const s of shrubs)drawList.push({y:s.y,type:'s',ref:s});drawList.sort((a,b)=>a.y-b.y);for(const d of drawList){if(d.type==='a'){drawShadow(d.ref);d.ref.draw(ctx,VP.x,VP.y);}else if(d.type==='t')drawTreeDyn(d.ref);else drawShrubDyn(d.ref);}
+  const drawList=[];for(const a of animals)if(a.alive||a.state===STATE.DEAD)drawList.push({y:a.y,type:'a',ref:a});for(const t of trees)drawList.push({y:t.y,type:'t',ref:t});for(const s of shrubs)drawList.push({y:s.y,type:'s',ref:s});drawList.sort((a,b)=>a.y-b.y);for(const d of drawList){if(d.type==='a'){drawShadow(d.ref);d.ref.draw(ctx,VP.x,VP.y);drawExhaustion(d.ref);}else if(d.type==='t')drawTreeDyn(d.ref);else drawShrubDyn(d.ref);}
   updateParticles(animals);drawFireflies(logicTick);drawCrickets(logicTick);drawDustDevil(logicTick);drawShootingStars(logicTick);drawDistantLightning(logicTick);drawHeatShimmer(logicTick);drawMorningMist(logicTick);drawSunRays();drawVultures();drawOwl();drawEyeShine();
   // Window vignette
   ctx.drawImage(vigCanvas, 0, 0);
