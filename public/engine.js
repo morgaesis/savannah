@@ -117,12 +117,61 @@ setInterval(() => { localStorage.setItem('ss_simTime', String(simTime)); localSt
 
 // Global time skip (used by buttons and keyboard)
 window._skipTime = function(hour) {
-  simTime = hour;
+  simTime = ((hour % 24) + 24) % 24;
   bgDirty = true;
   timeSlider.value = Math.round(simTime * 60);
   localStorage.setItem('ss_simTime', String(simTime));
   localStorage.setItem('ss_savedAt', String(Date.now()));
+  drawTimeDial();
 };
+
+// Circular time dial
+const timeDial = document.getElementById('time-dial');
+const tdCtx = timeDial ? timeDial.getContext('2d') : null;
+function drawTimeDial() {
+  if (!tdCtx) return;
+  const cx = 14, cy = 14, r = 12;
+  tdCtx.clearRect(0, 0, 28, 28);
+  // Background circle
+  tdCtx.beginPath(); tdCtx.arc(cx, cy, r, 0, Math.PI * 2);
+  tdCtx.fillStyle = 'rgba(40,35,25,0.6)'; tdCtx.fill();
+  tdCtx.strokeStyle = 'rgba(120,100,60,0.4)'; tdCtx.lineWidth = 1; tdCtx.stroke();
+  // Day arc (6:00-18:00 = top half in warm color)
+  tdCtx.beginPath(); tdCtx.arc(cx, cy, r - 2, -Math.PI/2, Math.PI/2);
+  tdCtx.strokeStyle = 'rgba(200,160,60,0.3)'; tdCtx.lineWidth = 2; tdCtx.stroke();
+  // Night arc
+  tdCtx.beginPath(); tdCtx.arc(cx, cy, r - 2, Math.PI/2, -Math.PI/2);
+  tdCtx.strokeStyle = 'rgba(60,70,120,0.3)'; tdCtx.lineWidth = 2; tdCtx.stroke();
+  // Hand (current time position)
+  const angle = (simTime / 24) * Math.PI * 2 - Math.PI / 2;
+  const hx = cx + Math.cos(angle) * (r - 3);
+  const hy = cy + Math.sin(angle) * (r - 3);
+  tdCtx.beginPath(); tdCtx.moveTo(cx, cy); tdCtx.lineTo(hx, hy);
+  tdCtx.strokeStyle = '#d4c080'; tdCtx.lineWidth = 1.5; tdCtx.stroke();
+  // Center dot
+  tdCtx.beginPath(); tdCtx.arc(cx, cy, 1.5, 0, Math.PI * 2);
+  tdCtx.fillStyle = '#d4c080'; tdCtx.fill();
+}
+drawTimeDial();
+
+// Drag on dial to set time (circular, wraps naturally)
+if (timeDial) {
+  let dialDragging = false;
+  const dialAngleToTime = (e) => {
+    const rect = timeDial.getBoundingClientRect();
+    const dx = e.clientX - (rect.left + rect.width / 2);
+    const dy = e.clientY - (rect.top + rect.height / 2);
+    let angle = Math.atan2(dy, dx) + Math.PI / 2; // 0 = top (midnight)
+    if (angle < 0) angle += Math.PI * 2;
+    return (angle / (Math.PI * 2)) * 24;
+  };
+  timeDial.addEventListener('mousedown', (e) => { dialDragging = true; window._skipTime(dialAngleToTime(e)); });
+  document.addEventListener('mousemove', (e) => { if (dialDragging) window._skipTime(dialAngleToTime(e)); });
+  document.addEventListener('mouseup', () => { dialDragging = false; });
+  timeDial.addEventListener('touchstart', (e) => { dialDragging = true; window._skipTime(dialAngleToTime(e.touches[0])); }, { passive: true });
+  document.addEventListener('touchmove', (e) => { if (dialDragging && e.touches.length) window._skipTime(dialAngleToTime(e.touches[0])); }, { passive: true });
+  document.addEventListener('touchend', () => { dialDragging = false; });
+}
 function updateTime() {
   const now = performance.now(), dtReal = (now-lastRealTime)/1000; lastRealTime = now;
   simTime = (simTime + dtReal*24/dayLengthSec)%24;
@@ -135,6 +184,7 @@ function updateTime() {
     : simTime < 14 ? 'Midday' : simTime < 17 ? 'Afternoon' : simTime < 19.5 ? 'Sunset'
     : simTime < 21 ? 'Dusk' : 'Night';
   document.title = `${ts} ${period} \u2014 African Plain`;
+  drawTimeDial();
 }
 
 // ── Input System ──
