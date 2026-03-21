@@ -1698,6 +1698,11 @@ function render(){
   // Dismiss loading screen after first frame
   const loadEl = document.getElementById('loading');
   if (loadEl) loadEl.style.display = 'none';
+  // First visit hint
+  if (!localStorage.getItem('ss_visited')) {
+    localStorage.setItem('ss_visited', '1');
+    setTimeout(() => showNarration('Press ? for controls'), 3000);
+  }
   requestAnimationFrame(render);
 }
 // Minimap: bird's-eye view of the full world
