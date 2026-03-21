@@ -53,6 +53,14 @@ npx serve dist    # or any static host
 - **Minimap** — click to pan
 - **Time dial** — drag to set time (circular, wraps at midnight)
 
+## Bookmarks
+
+- [Sunset](https://africa.morgaes.is/?t=17.5&seed=7742&pause) — golden hour
+- [Dawn](https://africa.morgaes.is/?t=6.2&seed=42&pause) — first light
+- [Night](https://africa.morgaes.is/?t=22&seed=42&pause) — Milky Way and moonlight
+- [Noon rain](https://africa.morgaes.is/?t=13&seed=42&rain&pause) — afternoon storm
+- [Midday heat](https://africa.morgaes.is/?t=13&seed=7742&pause) — animals at waterhole
+
 ## License
 
 MIT
