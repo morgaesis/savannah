@@ -1855,9 +1855,11 @@ function drawDistantLightning(tick) {
     // ~Every 1-3 minutes at night, chance of distant lightning
     if (pcgHash(tick & 0x7FF, 0, 8421) < 0.0008) {
       lightning.active = true;
-      lightning.x = rand(0, PW); // random position on horizon
+      lightning.x = rand(0, PW);
       lightning.timer = 0;
       lightning.flash = 0;
+      // Delayed thunder sound (1-3 seconds after flash)
+      if (window._playThunder) setTimeout(() => window._playThunder(), randInt(1000, 3000));
       lightning.doubleStrike = pcgHash(tick, 1, 8421) < 0.4; // 40% chance of double-flash
       if (pcgHash(tick, 2, 8421) < 0.3) showNarration('Distant thunder rolls across the plain');
     }
@@ -2572,6 +2574,24 @@ window._playStampede = function() {
     osc.connect(g).connect(audioCtx.destination);
     osc.start(t); osc.stop(t + 0.07);
   }
+};
+
+window._playThunder = function() {
+  if (!audioCtx || audioMuted) return;
+  // Distant thunder: low filtered noise rumble with decay
+  const dur = 1.5 + Math.random() * 1.5;
+  const noise = audioCtx.createBufferSource();
+  const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * dur, audioCtx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / d.length * 2);
+  noise.buffer = buf;
+  const filt = audioCtx.createBiquadFilter();
+  filt.type = 'lowpass'; filt.frequency.value = 150; filt.Q.value = 1;
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0.07, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+  noise.connect(filt).connect(g).connect(audioCtx.destination);
+  noise.start(); noise.stop(audioCtx.currentTime + dur);
 };
 
 // Mute toggle
