@@ -1770,6 +1770,20 @@ window._toggleMute = function() {
     else audioCtx.resume();
   }
 };
+// Share: copy URL with current time and seed to clipboard
+window._shareScene = function() {
+  const t = Math.round(simTime * 100) / 100;
+  const url = `${location.origin}${location.pathname}?t=${t}&seed=${WORLD_SEED}`;
+  navigator.clipboard.writeText(url).then(() => {
+    showNarration('Scene link copied');
+    const btn = document.getElementById('share-btn');
+    if (btn) { btn.textContent = '\u2705'; setTimeout(() => { btn.textContent = '\u{1F517}'; }, 2000); }
+  }).catch(() => {
+    // Fallback: show URL in prompt
+    prompt('Scene link:', url);
+  });
+};
+
 // Init mute button state
 if (audioMuted) {
   const btn = document.getElementById('mute-btn');
