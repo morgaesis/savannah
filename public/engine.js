@@ -2582,7 +2582,8 @@ window._toggleMute = function() {
 window._shareScene = function() {
   const t = Math.round(simTime * 100) / 100;
   const vp = Math.round(VP.x);
-  const url = `${location.origin}${location.pathname}?t=${t}&seed=${WORLD_SEED}&vp=${vp}`;
+  const extras = (rain.active ? '&rain' : '') + (_qPause ? '&pause' : '');
+  const url = `${location.origin}${location.pathname}?t=${t}&seed=${WORLD_SEED}&vp=${vp}${extras}`;
   navigator.clipboard.writeText(url).then(() => {
     showNarration('Scene link copied');
     const btn = document.getElementById('share-btn');
