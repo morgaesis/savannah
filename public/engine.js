@@ -24,7 +24,7 @@ function resizeCanvas() {
     renderVignette();
     bgDirty = true;
     // Re-generate position-dependent elements for new dimensions
-    starPoints = jitteredGridPoints(0, 0, PW, Math.max(1, HORIZON - VP.y), 6, 271, 0.55);
+    starPoints = jitteredGridPoints(0, 0, PW, Math.max(1, HORIZON - VP.y), 6, WORLD_SEED+271, 0.55);
     // Regenerate foreground grass and cricket positions
     if (typeof fgGrass !== 'undefined') {
       fgGrass.length = 0;
@@ -94,12 +94,32 @@ function pcgHash(x, y, seed) { let h = (x*374761393 + y*668265263 + seed*1274126
 function pcgHashN(x, y, seed, n) { const out = []; for (let i = 0; i < n; i++) out.push(pcgHash(x, y, seed + i*7919)); return out; }
 function jitteredGridPoints(aX, aY, aW, aH, cell, seed, density) { const pts = [], cols = Math.ceil(aW/cell), rows = Math.ceil(aH/cell); for (let cy = 0; cy < rows; cy++) for (let cx = 0; cx < cols; cx++) { const [r1,r2,r3] = pcgHashN(cx,cy,seed,3); if (r3 > (density||1)) continue; const px = aX+cx*cell+r1*cell*0.9, py = aY+cy*cell+r2*cell*0.9; if (px >= aX && px < aX+aW && py >= aY && py < aY+aH) pts.push({x:px,y:py,hash:r1}); } return pts; }
 
+// ── Query Params: ?t=17.5 (time in hours) &seed=42 (world seed) &speed=300 (day length sec) ──
+const _urlParams = new URLSearchParams(window.location.search);
+const _qTime = _urlParams.get('t');
+const _qSeed = _urlParams.get('seed');
+const _qSpeed = _urlParams.get('speed');
+
+// Master seed: affects world generation and animal spawning
+const WORLD_SEED = _qSeed ? Number(_qSeed) : Math.floor(Math.random() * 100000);
+// Seeded random replacement (used for animal spawning when seed is set)
+let _seededIdx = 0;
+const seededRand = (lo, hi) => lo + pcgHash(_seededIdx++, WORLD_SEED, 31337) * (hi - lo);
+if (_qSeed) { window._rand = rand; rand = seededRand; } // override rand when seed is set
+
 // ── Time System ──
 const savedDayLen = localStorage.getItem('ss_dayLength');
 const savedTime = localStorage.getItem('ss_simTime');
 const savedTimeStamp = localStorage.getItem('ss_savedAt');
-let dayLengthSec = savedDayLen ? Number(savedDayLen) : 86400;
-let simTime; { const now = new Date(); if (savedTime && savedTimeStamp) { simTime = (Number(savedTime) + (Date.now()-Number(savedTimeStamp))/1000 * 24/dayLengthSec) % 24; } else { simTime = now.getHours()+now.getMinutes()/60; } }
+let dayLengthSec = _qSpeed ? Number(_qSpeed) : (savedDayLen ? Number(savedDayLen) : 86400);
+let simTime;
+if (_qTime !== null) {
+  simTime = ((Number(_qTime) % 24) + 24) % 24;
+} else if (savedTime && savedTimeStamp) {
+  simTime = (Number(savedTime) + (Date.now() - Number(savedTimeStamp)) / 1000 * 24 / dayLengthSec) % 24;
+} else {
+  const now = new Date(); simTime = now.getHours() + now.getMinutes() / 60;
+}
 let lastRealTime = performance.now();
 const timeSlider = document.getElementById("time-slider");
 const timeDisplay = document.getElementById("time-display");
@@ -241,9 +261,9 @@ function regenerateWorld() {
   WORLD_W=CFG.worldW; WORLD_H=CFG.worldH; HORIZON=Math.floor(WORLD_H*0.45); waterHole.y=HORIZON+50;
   trees=[]; const tc=Math.round(6*WORLD_W/800); for(let i=0;i<tc;i++) trees.push({x:(i*WORLD_W/tc+rand(-20,20))%WORLD_W,y:HORIZON+2+rand(0,14),s:2+Math.floor(rand(0,2))});
   shrubs=[]; const sc=Math.round(25*WORLD_W/800); for(let i=0;i<sc;i++) shrubs.push({x:(i*137+43)%WORLD_W,y:HORIZON+5+(i*53%70),s:1+(i%3)});
-  grassTufts=jitteredGridPoints(0,HORIZON+2,WORLD_W,WORLD_H-HORIZON-12,12,42,0.55);
-  rockPoints=jitteredGridPoints(0,HORIZON+8,WORLD_W,WORLD_H-HORIZON-20,50,137,0.25);
-  starPoints=jitteredGridPoints(0,0,PW,HORIZON-VP.y,6,271,0.55); // denser, smaller cells
+  grassTufts=jitteredGridPoints(0,HORIZON+2,WORLD_W,WORLD_H-HORIZON-12,12,WORLD_SEED+42,0.55);
+  rockPoints=jitteredGridPoints(0,HORIZON+8,WORLD_W,WORLD_H-HORIZON-20,50,WORLD_SEED+137,0.25);
+  starPoints=jitteredGridPoints(0,0,PW,HORIZON-VP.y,6,WORLD_SEED+271,0.55);
   bgDirty=true;
 }
 regenerateWorld();

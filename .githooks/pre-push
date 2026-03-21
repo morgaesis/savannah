@@ -1,8 +1,8 @@
 #!/bin/bash
 # Pre-push hook: full scan of git history for secrets
 echo "Scanning git history for secrets before push..."
-infisical scan
-if [ $? -ne 0 ]; then
+infisical scan 2>&1 | grep -v "A new release of infisical"
+if [ ${PIPESTATUS[0]} -ne 0 ]; then
     echo "SECRET DETECTED IN HISTORY - push blocked. Rewrite history to remove."
     exit 1
 fi
