@@ -283,7 +283,7 @@ function applyInput() { if (inputState.left) { VP.x = wrapX(VP.x-1.2); bgDirty=t
 
 // ── Sky / Ambient ──
 const SKY_KEYS = [ {t:0,top:[8,8,25],mid:[12,12,35],low:[18,18,45]},{t:5,top:[8,8,25],mid:[12,12,35],low:[18,18,45]},{t:5.5,top:[25,15,55],mid:[60,30,50],low:[100,50,50]},{t:6.5,top:[40,25,80],mid:[170,85,50],low:[225,145,65]},{t:8,top:[90,140,210],mid:[140,180,235],low:[190,210,240]},{t:12,top:[70,130,210],mid:[120,170,235],low:[170,200,240]},{t:16,top:[80,135,200],mid:[150,170,200],low:[200,190,175]},{t:17.5,top:[45,25,85],mid:[175,85,50],low:[230,145,60]},{t:19,top:[25,15,60],mid:[70,35,45],low:[110,55,45]},{t:20,top:[12,10,35],mid:[18,15,40],low:[25,20,48]},{t:21,top:[8,8,25],mid:[12,12,35],low:[18,18,45]},{t:24,top:[8,8,25],mid:[12,12,35],low:[18,18,45]} ];
-function getSkyColors(t) { for (let i=0;i<SKY_KEYS.length-1;i++) { if (t>=SKY_KEYS[i].t&&t<SKY_KEYS[i+1].t) { const f=(t-SKY_KEYS[i].t)/(SKY_KEYS[i+1].t-SKY_KEYS[i].t); return {top:lerpColor(SKY_KEYS[i].top,SKY_KEYS[i+1].top,f),mid:lerpColor(SKY_KEYS[i].mid,SKY_KEYS[i+1].mid,f),low:lerpColor(SKY_KEYS[i].low,SKY_KEYS[i+1].low,f)}; } } return {top:SKY_KEYS[0].top,mid:SKY_KEYS[0].mid,low:SKY_KEYS[0].low}; }
+function getSkyColors(t) { for (let i=0;i<SKY_KEYS.length-1;i++) { if (t>=SKY_KEYS[i].t&&t<SKY_KEYS[i+1].t) { const f=(t-SKY_KEYS[i].t)/(SKY_KEYS[i+1].t-SKY_KEYS[i].t); const sky={top:lerpColor(SKY_KEYS[i].top,SKY_KEYS[i+1].top,f),mid:lerpColor(SKY_KEYS[i].mid,SKY_KEYS[i+1].mid,f),low:lerpColor(SKY_KEYS[i].low,SKY_KEYS[i+1].low,f)}; const rd=getRainDarkening(); if(rd>0){sky.top=lerpColor(sky.top,[20,25,40],rd);sky.mid=lerpColor(sky.mid,[35,40,55],rd);sky.low=lerpColor(sky.low,[50,55,70],rd);} return sky; } } const sky={top:SKY_KEYS[0].top,mid:SKY_KEYS[0].mid,low:SKY_KEYS[0].low}; const rd=getRainDarkening(); if(rd>0){sky.top=lerpColor(sky.top,[20,25,40],rd);sky.mid=lerpColor(sky.mid,[35,40,55],rd);sky.low=lerpColor(sky.low,[50,55,70],rd);} return sky; }
 function getAmbient(t) { if(t<5)return 0.18;if(t<6.5)return lerp(0.18,0.7,(t-5)/1.5);if(t<8)return lerp(0.7,1,(t-6.5)/1.5);if(t<16)return 1;if(t<18)return lerp(1,0.7,(t-16)/2);if(t<20)return lerp(0.7,0.18,(t-18)/2);return 0.18; }
 // Moonlight blue tint (applied as overlay on ground at night)
 function getMoonlightAlpha(t) {
@@ -607,17 +607,19 @@ class Animal {
       }
     }
     // Collision avoidance (force scales with speed so sprinting animals still dodge)
+    // During flee, we modify targetVx/vy instead of vx/vy so the escape direction
+    // still guides the animal but collisions cause lateral spreading
     if(!this.brain.flying||this.state===STATE.PERCH||this.state===STATE.WALK_GROUND){
       const ps=this.type==='elephant'?12:this.type==='giraffe'?8:5;
+      const isFlee = this.state === STATE.FLEE;
       const spd = Math.hypot(this.vx, this.vy);
-      const pushBase = 0.04 + spd * 0.15; // stronger push at higher speeds
+      const pushBase = 0.06 + spd * 0.2; // stronger push at higher speeds
       for(const o of spatialGrid.query(this.x,this.y,ps)){
         if(o===this||!o.alive)continue;
         if(o.brain.flying&&o.state!==STATE.PERCH&&o.state!==STATE.WALK_GROUND)continue;
-        // Don't dodge your own hunt target
         if(this.state===STATE.CHASE&&this.memory.huntTarget===o)continue;
         const dx=wrapDeltaX(this.x-o.x),dy=this.y-o.y,d=Math.hypot(dx,dy);
-        if(d<ps&&d>0.1){const push=(ps-d)/ps*pushBase;this.vx+=(dx/d)*push;this.vy+=(dy/d)*push*0.3;}
+        if(d<ps&&d>0.1){const push=(ps-d)/ps*pushBase;if(isFlee){this.targetVx+=(dx/d)*push;this.targetVy+=(dy/d)*push*0.3;}else{this.vx+=(dx/d)*push;this.vy+=(dy/d)*push*0.3;}}
       }
     }
     // Waterhole avoidance
@@ -1801,6 +1803,112 @@ function drawDistantLightning(tick) {
   }
 }
 
+// ── Rain System ──
+// Rain events: darkened sky, diagonal rain streaks, puddles forming
+const rain = { active: false, intensity: 0, timer: 0, maxDuration: 0, angle: 0.15 };
+const MAX_PUDDLES = 80;
+const puddles = []; // {x, y, size, life} - life > 0 means wet
+
+function updateRain(tick) {
+  if (!rain.active) {
+    // Random chance of rain starting: ~every 2-5 minutes during day hours (6-18)
+    // More likely during afternoon (14-17) when cumulonimbus typically form
+    const hour = simTime;
+    const dayHour = hour >= 6 && hour <= 18;
+    if (dayHour && pcgHash(tick & 0x7FF, 0, 9999) < 0.0004) {
+      rain.active = true;
+      rain.intensity = rand(0.4, 1.0);
+      rain.maxDuration = randInt(600, 1800); // 20-60 seconds
+      rain.timer = 0;
+      rain.angle = rand(0.12, 0.25); // wind angle
+      showNarration('Rain approaches from the horizon');
+    }
+    return;
+  }
+
+  rain.timer++;
+  // Gradual buildup and fade
+  if (rain.timer < 60) {
+    rain.intensity = lerp(0.2, rain.intensity, rain.timer / 60);
+  } else if (rain.timer > rain.maxDuration - 120) {
+    rain.intensity = lerp(0.2, rain.intensity, (rain.maxDuration - rain.timer) / 120);
+  }
+
+  if (rain.timer >= rain.maxDuration) {
+    rain.active = false;
+    rain.intensity = 0;
+    return;
+  }
+
+  // Spawn puddles on ground
+  if (rain.intensity > 0.5 && tick % 30 === 0) {
+    const hS = HORIZON - VP.y;
+    puddles.push({
+      x: rand(0, PW),
+      y: rand(hS + 10, PH - 5),
+      size: randInt(2, 5 + rain.intensity * 3),
+      life: randInt(400, 800),
+    });
+    while (puddles.length > MAX_PUDDLES) puddles.shift();
+  }
+
+  // Update puddle life
+  for (let i = puddles.length - 1; i >= 0; i--) {
+    puddles[i].life--;
+    if (puddles[i].life <= 0) puddles.splice(i, 1);
+  }
+}
+
+function drawRain() {
+  if (rain.intensity < 0.1) return;
+
+  const slant = rain.angle;
+  const streakLen = 4 + rain.intensity * 4;
+  const density = rain.intensity * 0.7;
+
+  // Rain streaks - diagonal lines
+  for (let i = 0; i < PH * density; i++) {
+    const x = Math.random() * (PW + 20) - 10;
+    const y = Math.random() * PH;
+    const sx = Math.floor(x + (y - PH) * slant);
+    const sy = Math.floor(y);
+    if (sx >= 0 && sx < PW && sy >= 0 && sy < PH) {
+      const alpha = 0.15 + rain.intensity * 0.25;
+      ctx.fillStyle = `rgba(180,190,210,${alpha})`;
+      ctx.fillRect(sx, sy, 1, streakLen);
+    }
+  }
+
+  // Puddle reflections
+  const a = getAmbient(simTime);
+  for (const p of puddles) {
+    const fade = Math.min(p.life / 100, 1);
+    const alpha = fade * 0.08 * a * rain.intensity;
+    const sx = Math.floor(p.x - p.size / 2);
+    const sy = Math.floor(p.y - p.size / 2);
+    // Irregular puddle shape
+    for (let dy = 0; dy < p.size; dy++) {
+      for (let dx = 0; dx < p.size; dx++) {
+        const dist = Math.hypot(dx - p.size/2, dy - p.size/2);
+        if (dist < p.size / 2) {
+          const wx = sx + dx;
+          const wy = sy + dy;
+          if (wx >= 0 && wx < PW && wy >= 0 && wy < PH) {
+            // Darker at edges, sky reflection in center
+            const edgeFade = 1 - dist / (p.size / 2);
+            ctx.fillStyle = `rgba(50,60,80,${alpha * edgeFade})`;
+            ctx.fillRect(wx, wy, 1, 1);
+          }
+        }
+      }
+    }
+  }
+}
+
+function getRainDarkening() {
+  return rain.active ? rain.intensity * 0.35 : 0;
+}
+
 function drawShootingStars(tk){const a=getAmbient(simTime);if(a>0.2){shootingStar.active=false;return;}if(!shootingStar.active){if(pcgHash(tk&0x1FF,0,7777)<0.001){shootingStar.active=true;shootingStar.x=rand(20,PW-40);shootingStar.y=rand(5,(HORIZON-VP.y)*0.5);shootingStar.vx=rand(1.5,3)*(pcgHash(tk,1,7777)>0.5?1:-1);shootingStar.vy=rand(0.3,1);shootingStar.life=randInt(15,30);shootingStar.trail=[];}return;}shootingStar.trail.push({x:shootingStar.x,y:shootingStar.y});if(shootingStar.trail.length>8)shootingStar.trail.shift();shootingStar.x+=shootingStar.vx;shootingStar.y+=shootingStar.vy;shootingStar.life--;if(shootingStar.life<=0||shootingStar.x<0||shootingStar.x>PW||shootingStar.y>PH*0.5){shootingStar.active=false;return;}const sa=(0.2-a)/0.2;for(let i=0;i<shootingStar.trail.length;i++){ctx.fillStyle=`rgba(255,255,240,${(i+1)/shootingStar.trail.length*0.6*sa})`;ctx.fillRect(Math.floor(shootingStar.trail[i].x),Math.floor(shootingStar.trail[i].y),1,1);}ctx.fillStyle=`rgba(255,255,250,${0.9*sa})`;ctx.fillRect(Math.floor(shootingStar.x),Math.floor(shootingStar.y),1,1);}
 
 // ── Narration (improved readability) ──
@@ -1875,7 +1983,7 @@ const spatialGrid = {
   }
 };
 
-function logicStep(){logicTick++;spatialGrid.clear();for(const a of animals)if(a.alive)spatialGrid.insert(a);for(const a of animals)a.tick(logicTick);respawnCheck(logicTick);updateDustDevil(logicTick);updateOwl(logicTick);updateVultures(logicTick);sleepShift(logicTick);if(logicTick%30===0)detectEvents(logicTick);}
+function logicStep(){logicTick++;spatialGrid.clear();for(const a of animals)if(a.alive)spatialGrid.insert(a);for(const a of animals)a.tick(logicTick);respawnCheck(logicTick);updateDustDevil(logicTick);updateOwl(logicTick);updateVultures(logicTick);updateRain(logicTick);sleepShift(logicTick);if(logicTick%30===0)detectEvents(logicTick);}
 
 // Sleeping animals occasionally shift position (flip facing)
 function sleepShift(tick) {
@@ -1905,7 +2013,7 @@ function render(){
   }
   drawSunFG();drawWindWaves(logicTick);drawClouds();drawWaterHole(logicTick,animals);updateFootprints(animals);drawFgGrass(logicTick);drawDust(logicTick);drawWindSeeds(logicTick);
   const drawList=[];for(const a of animals)if(a.alive||a.state===STATE.DEAD)drawList.push({y:a.y,type:'a',ref:a});for(const t of trees)drawList.push({y:t.y,type:'t',ref:t});for(const s of shrubs)drawList.push({y:s.y,type:'s',ref:s});drawList.sort((a,b)=>a.y-b.y);for(const d of drawList){if(d.type==='a'){drawShadow(d.ref);d.ref.draw(ctx,VP.x,VP.y);drawRimLight(d.ref);drawExhaustion(d.ref);}else if(d.type==='t')drawTreeDyn(d.ref);else drawShrubDyn(d.ref);}
-  updateParticles(animals);drawFireflies(logicTick);drawCrickets(logicTick);updateAnimalCalls(logicTick);drawDustDevil(logicTick);drawShootingStars(logicTick);drawDistantLightning(logicTick);drawHeatShimmer(logicTick);drawDustHaze();drawMorningMist(logicTick);drawSunRays();drawVultures();drawOwl();drawEyeShine();
+  updateParticles(animals);drawFireflies(logicTick);drawCrickets(logicTick);updateAnimalCalls(logicTick);drawDustDevil(logicTick);drawShootingStars(logicTick);drawDistantLightning(logicTick);drawHeatShimmer(logicTick);drawDustHaze();drawMorningMist(logicTick);drawSunRays();drawVultures();drawOwl();drawEyeShine();drawRain();
   // Window vignette
   ctx.drawImage(vigCanvas, 0, 0);
   // Color grade

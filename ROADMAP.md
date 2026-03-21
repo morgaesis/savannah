@@ -8,20 +8,26 @@
 - Settings panel with animal counts, world width, day speed, time control
 - Keyboard shortcuts (N=skip time, S=speed cycle, arrows/drag=pan)
 - World wrapping, spatial grid for O(n) collision avoidance
+- Vultures that circle above carcasses
+- Rain events with darkened sky, rain streaks, and puddles
 - Deployed live at https://africa.morgaes.is
 
 ## Near-term
 - Split engine.js (~3000 lines) into ES modules with a bundler step
-- Audio: ambient sounds (crickets, birds, wind) with Web Audio API
-- More weather: rain events with darkened sky, puddles forming
 - Seasonal variation: dry/wet season affecting grass color and animal behavior
 - Touch gesture support for mobile (pinch zoom, time scrub)
+
+## Audio (complete)
+- Ambient sounds (crickets, birds, wind) with Web Audio API
+- Event sounds (roar, stampede)
+
+## More weather (complete)
+- Rain events with darkened sky, rain streaks, and puddles
 
 ## Medium-term
 - Migration system: wildebeest herds that cross the full world
 - Predator variety: cheetah (fast sprinter), hyena pack (group hunters)
 - Baby animals that follow mothers
-- Vultures that circle above carcasses
 - Termite mounds as static features
 - Watering hole ecosystem: hippos, crocodiles
 
