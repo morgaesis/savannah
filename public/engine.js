@@ -625,7 +625,10 @@ class Animal {
     if(!this.alive&&this.state!==STATE.DEAD)return;const sx=worldToScreenX(this.x),sy=Math.floor(this.y-vpy);if(sx<-40||sx>PW+40||sy<-20||sy>PH+20)return;
     const horizonSy=HORIZON-vpy,isFlying=this.brain.flying&&this.state!==STATE.PERCH&&this.state!==STATE.WALK_GROUND;
     let depthScale=1;if(!isFlying&&sy>horizonSy)depthScale=0.85+((sy-horizonSy)/Math.max(1,PH-horizonSy))*0.25;
-    const speed=Math.hypot(this.vx,this.vy),isMoving=speed>0.02,wp=this._walkDist*0.35,bob=isMoving?Math.sin(wp*2)*0.6:0;
+    const speed=Math.hypot(this.vx,this.vy),isMoving=speed>0.02,wp=this._walkDist*0.35;
+    // Gazelle stotting: exaggerated bounce when alert (signaling to predator)
+    const stotting = this.type === 'gazelle' && this.state === STATE.ALERT;
+    const bob = stotting ? Math.abs(Math.sin(this.frame * 0.3)) * 3 : (isMoving ? Math.sin(wp*2)*0.6 : 0);
     // Breathing: sleeping animals gently rise/fall 1px on a slow cycle
     const isResting = this.state === STATE.REST && speed < 0.03;
     const breathe = isResting ? Math.round(Math.sin(this.frame * 0.04 + this.seed) * 0.5) : 0;
