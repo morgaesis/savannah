@@ -1,0 +1,13 @@
+{
+  "name": "African Plain — Savanna Screensaver",
+  "short_name": "Savannah",
+  "description": "Pixel art ecosystem simulation with day/night cycle",
+  "start_url": "/?source=pwa",
+  "display": "fullscreen",
+  "background_color": "#0a0a15",
+  "theme_color": "#0a0a15",
+  "orientation": "any",
+  "icons": [
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
