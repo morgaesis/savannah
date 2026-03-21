@@ -948,28 +948,14 @@ function renderBg() {
   // Treeline
   if(hS>0){bgCtx.fillStyle=`rgba(${Math.round(35*amb)},${Math.round(42*amb)},${Math.round(20*amb)},0.6)`;for(let px=0;px<PW;px++){const wx=wrapX(px+VP.x),th=2+Math.sin(wx*0.08)*1.5+Math.sin(wx*0.2)*0.8+(Math.sin(wx*0.35)>0.3?2:0),ty=Math.floor(hS-th);if(ty>=0&&ty<PH)bgCtx.fillRect(px,ty,1,Math.ceil(th));}}
   // Ground
-  // Ground: optimized 2-hash per pixel (was 5)
+  // Ground: fast line-by-line with per-line noise
   const gY=Math.max(0,hS);
-  if(gY<PH){
-    const id=bgCtx.getImageData(0,gY,PW,PH-gY),d=id.data;
-    for(let y=0;y<PH-gY;y++){
-      const wy=(y+gY)+VP.y,ft=(wy-HORIZON)/(WORLD_H-HORIZON);
-      const br=lerp(85,55,ft)*amb,bg=lerp(70,45,ft)*amb,bb=lerp(38,22,ft)*amb;
-      for(let x=0;x<PW;x++){
-        const wx=wrapX(x+VP.x);
-        // 2 hashes: one for fine noise, one for patch type (4px cells)
-        const n = (pcgHash(wx, wy, WORLD_SEED+1001) - 0.5) * 14;
-        const pv = pcgHash(wx>>2, wy>>2, WORLD_SEED+4004);
-        let r=br+n*0.5, g=bg+n*0.5, b=bb+n*0.3;
-        // Patch coloring from single hash
-        if(pv<0.2){g+=pv*25*amb;r+=pv*12*amb;}
-        else if(pv>0.75){r+=(pv-0.75)*30*amb;g-=(pv-0.75)*8*amb;}
-        else if(pv>0.6){r+=(pv-0.6)*15*amb;g+=(pv-0.6)*10*amb;}
-        const idx=(y*PW+x)*4;
-        d[idx]=clamp(r,0,255);d[idx+1]=clamp(g,0,255);d[idx+2]=clamp(b,0,255);d[idx+3]=255;
-      }
-    }
-    bgCtx.putImageData(id,0,gY);
+  for(let y=gY;y<PH;y++){
+    const wy=y+VP.y,ft=(wy-HORIZON)/(WORLD_H-HORIZON);
+    const r=lerp(85,55,ft)*amb,g=lerp(70,45,ft)*amb,b=lerp(38,22,ft)*amb;
+    const n=(pcgHash(0,wy,WORLD_SEED+1001)-0.5)*6;
+    bgCtx.fillStyle=rgb([clamp(r+n,0,255),clamp(g+n,0,255),clamp(b+n*0.5,0,255)]);
+    bgCtx.fillRect(0,y,PW,1);
   }
   // Rocks+grass+shadows (wrap-aware)
   for(const rock of rockPoints){const rx=worldToScreenX(rock.x),ry=Math.floor(rock.y-VP.y);if(rx<-5||rx>=PW+5||ry<0||ry>=PH)continue;const sz=1+Math.floor(rock.hash*2.5);bgCtx.fillStyle=`rgba(25,18,10,${0.12*amb})`;bgCtx.fillRect(rx-sz,ry+1,sz*2,1);const rc=Math.round((70+rock.hash*15)*amb),gc=Math.round((65+rock.hash*12)*amb),bc=Math.round((55+rock.hash*10)*amb);bgCtx.fillStyle=rgb([rc,gc,bc]);bgCtx.fillRect(rx,ry-sz,sz,sz+1);bgCtx.fillStyle=rgb([Math.min(255,rc+15),Math.min(255,gc+12),Math.min(255,bc+8)]);bgCtx.fillRect(rx,ry-sz,sz,1);}
