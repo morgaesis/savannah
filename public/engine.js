@@ -976,6 +976,20 @@ function renderBg() {
     bgCtx.fillStyle=rgb([clamp(r+n,0,255),clamp(g+n,0,255),clamp(b+n*0.5,0,255)]);
     bgCtx.fillRect(0,y,PW,1);
   }
+  // Trampled ground around waterhole (darker, muddier from animal traffic)
+  const whScrX = worldToScreenX(waterHole.x), whScrY = Math.floor(waterHole.y - VP.y);
+  if (whScrX > -60 && whScrX < PW + 60 && whScrY > 0 && whScrY < PH) {
+    const trampR = waterHole.rx + 15;
+    bgCtx.fillStyle = `rgba(40,30,15,${0.06 * amb})`;
+    for (let dy = -8; dy <= 8; dy++) {
+      for (let dx = -trampR; dx <= trampR; dx++) {
+        const d = Math.hypot(dx / trampR, dy / 8);
+        if (d > 0.6 && d < 1.0 && pcgHash(Math.abs(dx), Math.abs(dy), WORLD_SEED + 8888) < 0.5) {
+          bgCtx.fillRect(whScrX + dx, whScrY + dy, 1, 1);
+        }
+      }
+    }
+  }
   // Rocks+grass+shadows (wrap-aware)
   for(const rock of rockPoints){const rx=worldToScreenX(rock.x),ry=Math.floor(rock.y-VP.y);if(rx<-5||rx>=PW+5||ry<0||ry>=PH)continue;const sz=1+Math.floor(rock.hash*2.5);bgCtx.fillStyle=`rgba(25,18,10,${0.12*amb})`;bgCtx.fillRect(rx-sz,ry+1,sz*2,1);const rc=Math.round((70+rock.hash*15)*amb),gc=Math.round((65+rock.hash*12)*amb),bc=Math.round((55+rock.hash*10)*amb);bgCtx.fillStyle=rgb([rc,gc,bc]);bgCtx.fillRect(rx,ry-sz,sz,sz+1);bgCtx.fillStyle=rgb([Math.min(255,rc+15),Math.min(255,gc+12),Math.min(255,bc+8)]);bgCtx.fillRect(rx,ry-sz,sz,1);}
   const grassC=[[85,78,28],[75,85,30],[95,80,25],[70,65,25],[80,90,32]];for(const g of grassTufts){const gx=worldToScreenX(g.x),gy=Math.floor(g.y-VP.y);if(gx<0||gx>=PW||gy<0||gy>=PH)continue;const v=Math.floor(g.hash*grassC.length),h=2+Math.floor(g.hash*3),c=grassC[v];bgCtx.fillStyle=`rgba(${Math.round(c[0]*amb)},${Math.round(c[1]*amb)},${Math.round(c[2]*amb)},0.7)`;bgCtx.fillRect(gx,gy-h,1,h);if(g.hash>0.3)bgCtx.fillRect(gx-1,gy-Math.floor(h*0.6),1,Math.floor(h*0.5));if(g.hash>0.15)bgCtx.fillRect(gx+1,gy-Math.floor(h*0.7),1,Math.floor(h*0.6));}
