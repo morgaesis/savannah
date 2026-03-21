@@ -1268,6 +1268,16 @@ function drawTreeDyn(t) {
   if (x < -30 || x > PW + 30 || y < -30 || y > PH + 30) return;
   const s = t.s, a = getAmbient(simTime);
 
+  // Shade patch on ground directly below canopy (visible during day)
+  if (a > 0.4) {
+    const shadeR = s * 4;
+    const shadeAlpha = 0.04 * a;
+    ctx.fillStyle = `rgba(15,12,8,${shadeAlpha})`;
+    for (let dy = -2; dy <= 2; dy++) {
+      const w = Math.round(shadeR * (1 - Math.abs(dy) / 3));
+      ctx.fillRect(x - w + sway, y + dy, w * 2, 1);
+    }
+  }
   // Canopy sway: unique per tree, trunk stays fixed
   const seed = Math.floor(t.x * 7 + t.y * 13);
   const swaySpeed = 0.008 + (seed % 100) / 100 * 0.005;
