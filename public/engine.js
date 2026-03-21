@@ -1390,7 +1390,28 @@ addSlider(dl,'World Width','cfg-ww',400,2400,CFG.worldW,100,v=>{CFG.worldW=v;reg
 addSlider(dl,'Dust Devils','cfg-dd',0,10,Math.round(CFG.dustDevilFreq*20000),1,v=>{CFG.dustDevilFreq=v/20000;},v=>v===0?'Off':v<=3?'Rare':v<=6?'Normal':'Frequent');
 const sep=document.createElement('div');sep.style.cssText='border-top:1px solid #333;margin:8px 0;';dl.appendChild(sep);const at=document.createElement('div');at.style.cssText='font-size:11px;color:#a88040;margin-bottom:4px;';at.textContent='Animal Counts';dl.appendChild(at);
 for(const type of['zebra','gazelle','wildebeest','warthog','lion','elephant','giraffe','bird'])addSlider(dl,type.charAt(0).toUpperCase()+type.slice(1),'cfg-'+type,0,15,CFG.animalCounts[type],1,v=>{CFG.animalCounts[type]=v;syncAnimalCounts();});
-const cb=document.createElement('button');cb.textContent='Close';cb.style.cssText='margin-top:12px;padding:4px 16px;background:#333;color:#ccc;border:1px solid #555;border-radius:4px;cursor:pointer;font:11px monospace;';cb.addEventListener('click',()=>{ov.style.display='none';configMenuOpen=false;});dl.appendChild(cb);ov.appendChild(dl);document.body.appendChild(ov);ov.addEventListener('click',e=>{if(e.target===ov){ov.style.display='none';configMenuOpen=false;}});return ov;}
+// Reset button
+const rb=document.createElement('button');rb.textContent='Reset All';rb.style.cssText='margin-top:12px;margin-right:8px;padding:4px 12px;background:#442222;color:#ccc;border:1px solid #664444;border-radius:4px;cursor:pointer;font:11px monospace;';
+rb.addEventListener('click',()=>{
+  // Reset time to current real time
+  const now=new Date(); window._skipTime(now.getHours()+now.getMinutes()/60);
+  // Reset day length to 24h
+  dayLengthSec=86400; dayLengthSel.value='86400';
+  localStorage.setItem('ss_dayLength','86400');
+  // Reset viewport
+  VP.x=180; bgDirty=true;
+  // Reset animal counts to defaults and respawn
+  CFG.animalCounts={zebra:5,gazelle:6,wildebeest:5,warthog:3,lion:2,elephant:3,giraffe:2,bird:7};
+  populateAnimals();
+  // Reset sliders in config menu
+  for(const type of Object.keys(CFG.animalCounts)){
+    const sl=document.getElementById('cfg-'+type);
+    if(sl){sl.value=CFG.animalCounts[type];sl.dispatchEvent(new Event('input'));}
+  }
+  showNarration('World reset');
+});
+dl.appendChild(rb);
+const cb=document.createElement('button');cb.textContent='Close';cb.style.cssText='margin-top:12px;padding:4px 12px;background:#333;color:#ccc;border:1px solid #555;border-radius:4px;cursor:pointer;font:11px monospace;';cb.addEventListener('click',()=>{ov.style.display='none';configMenuOpen=false;});dl.appendChild(cb);ov.appendChild(dl);document.body.appendChild(ov);ov.addEventListener('click',e=>{if(e.target===ov){ov.style.display='none';configMenuOpen=false;}});return ov;}
 function addSlider(parent,label,id,min,max,value,step,onChange,fmt){const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:6px;margin-bottom:4px;';const lbl=document.createElement('span');lbl.style.cssText='flex:0 0 90px;font-size:11px;';lbl.textContent=label;const sl=document.createElement('input');sl.type='range';sl.id=id;sl.min=min;sl.max=max;sl.value=value;sl.step=step;sl.style.cssText='flex:1;height:6px;accent-color:#a88040;';const val=document.createElement('span');val.style.cssText='flex:0 0 50px;font-size:10px;text-align:right;color:#888;';val.textContent=fmt?fmt(value):value;sl.addEventListener('input',()=>{const v=Number(sl.value);val.textContent=fmt?fmt(v):v;onChange(v);});row.appendChild(lbl);row.appendChild(sl);row.appendChild(val);parent.appendChild(row);}
 const configOverlay=createConfigMenu();
 const gearBtn=document.createElement('span');gearBtn.textContent=' [cfg]';gearBtn.style.cssText='cursor:pointer;color:#a88040;';gearBtn.addEventListener('click',e=>{e.stopPropagation();configMenuOpen=!configMenuOpen;configOverlay.style.display=configMenuOpen?'flex':'none';});toggle.parentElement.insertBefore(gearBtn,ctrlBody);
