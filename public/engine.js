@@ -1770,8 +1770,18 @@ function updateVultures(tick) {
     v.y = HORIZON * 0.3 + Math.sin(v.phase * 0.5) * 8;
     // Slowly descend as time passes (getting bolder)
     if (v.life < 400) {
-      v.radius *= 0.999; // tighten circle
-      v.y += 0.01; // drift lower
+      v.radius *= 0.998;
+      v.y += 0.015;
+    }
+    // Land near carcass when low enough
+    if (v.y > HORIZON * 0.7 && !v.landed) {
+      v.landed = true;
+      v.x = v.targetX + rand(-12, 12);
+      v.y = v.targetY + rand(-3, 3);
+    }
+    if (v.landed) {
+      v.x += (rand(-0.03, 0.03)); // slight hop
+      v.y = clamp(v.y, HORIZON + 2, WORLD_H - 5);
     }
   }
 }
@@ -1783,21 +1793,25 @@ function drawVultures() {
     const sy = Math.floor(v.y - VP.y);
     if (sx < -40 || sx > PW + 40 || sy < -5 || sy > PH) continue;
 
-    // Vulture silhouette: wider wingspan than other birds, distinctive shape
-    const wingPhase = Math.sin(v.frame * 0.04 + v.phase); // per-vulture offset so they don't flap in sync
-    const w = Math.round(wingPhase * 0.8); // barely flaps (gliding)
     ctx.fillStyle = `rgba(30,25,20,${0.6 + amb * 0.3})`;
-    // Body
-    ctx.fillRect(sx, sy, 2, 1);
-    // Wings (wide, fingered tips)
-    ctx.fillRect(sx - 3, sy - w, 3, 1);
-    ctx.fillRect(sx + 2, sy - w, 3, 1);
-    // Wing tips (spread fingers)
-    ctx.fillRect(sx - 4, sy - w - (w > 0 ? 1 : 0), 1, 1);
-    ctx.fillRect(sx + 5, sy - w - (w > 0 ? 1 : 0), 1, 1);
-    // Head (extends forward)
-    const facing = Math.cos(v.phase) > 0 ? 1 : -1;
-    ctx.fillRect(sx + facing, sy - 1, 1, 1);
+    if (v.landed) {
+      // Landed vulture: hunched body on ground
+      ctx.fillRect(sx, sy - 2, 2, 2); // body
+      ctx.fillRect(sx + 1, sy - 3, 1, 1); // head (hunched neck)
+      ctx.fillRect(sx - 1, sy - 1, 1, 1); // folded wing
+      ctx.fillRect(sx + 2, sy - 1, 1, 1);
+    } else {
+      // Flying: wide wingspan, gliding
+      const wingPhase = Math.sin(v.frame * 0.04 + v.phase);
+      const w = Math.round(wingPhase * 0.8);
+      ctx.fillRect(sx, sy, 2, 1);
+      ctx.fillRect(sx - 3, sy - w, 3, 1);
+      ctx.fillRect(sx + 2, sy - w, 3, 1);
+      ctx.fillRect(sx - 4, sy - w - (w > 0 ? 1 : 0), 1, 1);
+      ctx.fillRect(sx + 5, sy - w - (w > 0 ? 1 : 0), 1, 1);
+      const facing = Math.cos(v.phase) > 0 ? 1 : -1;
+      ctx.fillRect(sx + facing, sy - 1, 1, 1);
+    }
   }
 }
 
