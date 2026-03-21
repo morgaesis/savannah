@@ -948,7 +948,29 @@ function renderBg() {
   // Treeline
   if(hS>0){bgCtx.fillStyle=`rgba(${Math.round(35*amb)},${Math.round(42*amb)},${Math.round(20*amb)},0.6)`;for(let px=0;px<PW;px++){const wx=wrapX(px+VP.x),th=2+Math.sin(wx*0.08)*1.5+Math.sin(wx*0.2)*0.8+(Math.sin(wx*0.35)>0.3?2:0),ty=Math.floor(hS-th);if(ty>=0&&ty<PH)bgCtx.fillRect(px,ty,1,Math.ceil(th));}}
   // Ground
-  const gY=Math.max(0,hS);if(gY<PH){const id=bgCtx.getImageData(0,gY,PW,PH-gY),d=id.data;for(let y=0;y<PH-gY;y++){const wy=(y+gY)+VP.y,ft=(wy-HORIZON)/(WORLD_H-HORIZON),br=lerp(85,55,ft)*amb,bg=lerp(70,45,ft)*amb,bb=lerp(38,22,ft)*amb;for(let x=0;x<PW;x++){const wx=wrapX(x+VP.x),n1=(pcgHash(wx,wy,1001)-0.5)*8,n2=(pcgHash(wx>>2,wy>>2,2002)-0.5)*12,n3=(pcgHash(wx>>4,wy>>4,3003)-0.5)*16,pv=pcgHash(wx>>3,wy>>3,4004),pb=pcgHash(wx>>2,wy>>2,5005);let r=br+n1*0.5+n2*0.3+n3*0.2,g=bg+n1*0.5+n2*0.3+n3*0.2,b=bb+n1*0.3+n2*0.2+n3*0.1;if(pv<0.25){const s=(0.25-pv)*4*pb;g+=s*6*amb;r+=s*3*amb;}else if(pv>0.7&&pv<0.85){const s=(pv-0.7)*6*pb;r+=s*10*amb;g-=s*2*amb;}else if(pv>0.9){const s=(pv-0.9)*10*pb;r+=s*7*amb;g+=s*5*amb;b+=s*2*amb;}const idx=(y*PW+x)*4;d[idx]=clamp(r,0,255);d[idx+1]=clamp(g,0,255);d[idx+2]=clamp(b,0,255);d[idx+3]=255;}}bgCtx.putImageData(id,0,gY);}
+  // Ground: optimized 2-hash per pixel (was 5)
+  const gY=Math.max(0,hS);
+  if(gY<PH){
+    const id=bgCtx.getImageData(0,gY,PW,PH-gY),d=id.data;
+    for(let y=0;y<PH-gY;y++){
+      const wy=(y+gY)+VP.y,ft=(wy-HORIZON)/(WORLD_H-HORIZON);
+      const br=lerp(85,55,ft)*amb,bg=lerp(70,45,ft)*amb,bb=lerp(38,22,ft)*amb;
+      for(let x=0;x<PW;x++){
+        const wx=wrapX(x+VP.x);
+        // 2 hashes: one for fine noise, one for patch type (4px cells)
+        const n = (pcgHash(wx, wy, WORLD_SEED+1001) - 0.5) * 14;
+        const pv = pcgHash(wx>>2, wy>>2, WORLD_SEED+4004);
+        let r=br+n*0.5, g=bg+n*0.5, b=bb+n*0.3;
+        // Patch coloring from single hash
+        if(pv<0.2){g+=pv*25*amb;r+=pv*12*amb;}
+        else if(pv>0.75){r+=(pv-0.75)*30*amb;g-=(pv-0.75)*8*amb;}
+        else if(pv>0.6){r+=(pv-0.6)*15*amb;g+=(pv-0.6)*10*amb;}
+        const idx=(y*PW+x)*4;
+        d[idx]=clamp(r,0,255);d[idx+1]=clamp(g,0,255);d[idx+2]=clamp(b,0,255);d[idx+3]=255;
+      }
+    }
+    bgCtx.putImageData(id,0,gY);
+  }
   // Rocks+grass+shadows (wrap-aware)
   for(const rock of rockPoints){const rx=worldToScreenX(rock.x),ry=Math.floor(rock.y-VP.y);if(rx<-5||rx>=PW+5||ry<0||ry>=PH)continue;const sz=1+Math.floor(rock.hash*2.5);bgCtx.fillStyle=`rgba(25,18,10,${0.12*amb})`;bgCtx.fillRect(rx-sz,ry+1,sz*2,1);const rc=Math.round((70+rock.hash*15)*amb),gc=Math.round((65+rock.hash*12)*amb),bc=Math.round((55+rock.hash*10)*amb);bgCtx.fillStyle=rgb([rc,gc,bc]);bgCtx.fillRect(rx,ry-sz,sz,sz+1);bgCtx.fillStyle=rgb([Math.min(255,rc+15),Math.min(255,gc+12),Math.min(255,bc+8)]);bgCtx.fillRect(rx,ry-sz,sz,1);}
   const grassC=[[85,78,28],[75,85,30],[95,80,25],[70,65,25],[80,90,32]];for(const g of grassTufts){const gx=worldToScreenX(g.x),gy=Math.floor(g.y-VP.y);if(gx<0||gx>=PW||gy<0||gy>=PH)continue;const v=Math.floor(g.hash*grassC.length),h=2+Math.floor(g.hash*3),c=grassC[v];bgCtx.fillStyle=`rgba(${Math.round(c[0]*amb)},${Math.round(c[1]*amb)},${Math.round(c[2]*amb)},0.7)`;bgCtx.fillRect(gx,gy-h,1,h);if(g.hash>0.3)bgCtx.fillRect(gx-1,gy-Math.floor(h*0.6),1,Math.floor(h*0.5));if(g.hash>0.15)bgCtx.fillRect(gx+1,gy-Math.floor(h*0.7),1,Math.floor(h*0.6));}
