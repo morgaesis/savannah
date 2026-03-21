@@ -37,7 +37,11 @@ npx serve dist    # or any static host
 | `t` | Time of day (hours, 0-24) | `?t=17.5` (sunset) |
 | `seed` | World seed (deterministic layout) | `?seed=7742` |
 | `speed` | Day length in seconds | `?speed=300` (5 min days) |
-| `vp` | Viewport x position (0-800) | `?vp=400` (center of world) |
+| `vp` | Viewport x position | `?vp=400` |
+| `w` | World width (min 400) | `?w=1200` |
+| `animals` | Animal counts (letter+number, comma-separated) | `?animals=z10,g8,l3,e5` |
+| `pause` | Freeze time at specified `t` value | `?t=17.5&pause` |
+| `hide` | Hide all UI (clean mode for screenshots/embedding) | `?hide` |
 
 ## Controls
 
