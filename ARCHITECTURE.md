@@ -40,6 +40,13 @@ Browser-based pixel-art African savanna screensaver. Single-page app, 100% clien
 - Cicadas (hot midday, sawtooth with tremolo)
 - Lion roar (hunt events, filtered noise burst)
 - Stampede hoofbeats (flee events, rapid sine thumps)
+- Rain (bandpass-filtered noise, scales with intensity)
+
+### Weather
+- Rain events with darkened sky, diagonal streaks, and puddle formation
+- Puddles reflect sky color with splash ripple rings
+- Rainbow after rain (7-color arc opposite sun, 20-second fade)
+- Afternoon dust haze near horizon during peak heat
 
 ### Time System
 - 12 sky color keyframes interpolated
@@ -48,7 +55,17 @@ Browser-based pixel-art African savanna screensaver. Single-page app, 100% clien
 - Circular time dial in controls
 
 ### Visual Effects
-Crepuscular sun rays, dynamic shadow length (3x at horizon), morning mist, heat shimmer, dust devils, lightning, fireflies, wind-blown seeds, shooting stars, owl silhouettes, vultures circling kills, cricket pulse rings, animal footprints, eye-shine (tapetum lucidum), breathing animation, panting/exhaustion dots, elephant dust-bathing, giraffe neck sway, zebra heat-swishing, first light horizon band, moonlight ground wash, waterhole sky/moon reflection
+Crepuscular sun rays, dynamic shadow length (3x at horizon), morning mist, heat shimmer, dust devils, lightning, fireflies, wind-blown seeds, shooting stars, owl silhouettes, vultures circling kills, cricket pulse rings, animal footprints, eye-shine (paired for lions/elephants), breathing animation, panting/exhaustion dots, elephant dust-bathing, giraffe neck sway, zebra heat-swishing, first light horizon band, moonlight ground wash, waterhole sky/moon reflection, golden hour rim light on animals, trampled ground around waterhole, animal vocalization arcs, night film grain, cloud altitude parallax
 
-### Animal Species
+### Animal Species & Behaviors
 zebra, gazelle, wildebeest, warthog, lion, elephant, giraffe, bird — each with unique pixel-art sprites, state-specific animations, sleeping poses, and species-appropriate behavior.
+
+Notable species-specific behaviors:
+- **Zebra**: sentinel (boldest stays alert while herd grazes), heat tail-swishing
+- **Gazelle**: stotting/pronking when alert (exaggerated bounce to signal predators)
+- **Wildebeest**: bellowing vocalization arcs
+- **Warthog**: kneeling to graze, tail straight up when fleeing
+- **Lion**: pre-hunt positioning (drifts toward prey in late afternoon), lying-down rest pose, paired eye-shine
+- **Elephant**: dust-bathing, trunk spray when drinking, single-file herding, trumpet calls when alarmed, walking dust clouds
+- **Giraffe**: neck sway when walking, browsing upward from tree canopies when near trees
+- **Bird**: dawn chorus (simultaneous takeoff), hopping on ground, roosting at night near trees
