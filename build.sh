@@ -6,6 +6,7 @@ mkdir -p dist
 cp public/engine.js dist/
 cp public/index.html dist/
 cp public/favicon.svg dist/
+cp public/og.png dist/
 
 # Remove the SSE hot-reload script from index.html (not needed for static)
 sed -i '/<script>/,/<\/script>/{ /EventSource/,/<\/script>/d }' dist/index.html
