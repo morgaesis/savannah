@@ -528,7 +528,27 @@ function scanForThreat(self, animals) {
   return null;
 }
 
-function propagateAlarm(source, threat, animals) { let alerted=0; for(const a of animals){if(a===source||!a.alive||a.type!==source.type)continue;const d=dist(source,a);if(d<70){a.memory.fear=Math.min(65,a.memory.fear+8*(1-d/70));a.memory.threats.push({x:threat.x,y:threat.y,time:source._tick});alerted++;}} if(alerted>=2)spawnDustBurst(source.x,source.y,alerted*2,8); }
+function propagateAlarm(source, threat, animals) {
+  let alerted=0;
+  for(const a of animals){
+    if(a===source||!a.alive||a.type!==source.type)continue;
+    const d=dist(source,a);
+    if(d<70){a.memory.fear=Math.min(65,a.memory.fear+8*(1-d/70));a.memory.threats.push({x:threat.x,y:threat.y,time:source._tick});alerted++;}
+  }
+  if(alerted>=2) spawnDustBurst(source.x,source.y,alerted*2,8);
+  // Startle nearby ground birds: force takeoff
+  for(const a of animals){
+    if(!a.alive||a.type!=='bird') continue;
+    if(a.state!==STATE.PERCH&&a.state!==STATE.WALK_GROUND) continue;
+    if(dist(source,a)<50){
+      birdScatterEffect(a.x, a.y);
+      a.state=STATE.FLOCK; a._flockPhase=rand(0,Math.PI*2);
+      a.y=Math.min(a.y, HORIZON-rand(10,30));
+      a.targetVx=rand(-0.2,0.2); a.targetVy=-a.brain.speed*0.7;
+      a._fiber=behaviorLoop(a,()=>animals); a._yieldRemaining=randInt(100,300);
+    }
+  }
+}
 
 function* goToWater(self) {
   // Approach a point on the waterhole edge (not center), with slight offset per animal
