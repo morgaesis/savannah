@@ -1888,6 +1888,13 @@ function updateRain(tick) {
   if (rain.timer >= rain.maxDuration) {
     rain.active = false;
     rain.intensity = 0;
+    // Trigger rainbow if sun is visible
+    if (getSunPos(simTime)) {
+      rainbow.active = true;
+      rainbow.life = 600; // ~20 seconds
+      rainbow.maxLife = 600;
+      showNarration('A rainbow arcs across the sky');
+    }
     return;
   }
 
@@ -1971,6 +1978,45 @@ function drawRain() {
         ctx.stroke();
       }
     }
+  }
+}
+
+// Rainbow: appears after rain ends when sun is visible
+const rainbow = { active: false, life: 0, maxLife: 600 };
+
+function drawRainbow() {
+  if (!rainbow.active) return;
+  rainbow.life--;
+  if (rainbow.life <= 0) { rainbow.active = false; return; }
+  const fade = Math.min(rainbow.life / 120, (rainbow.maxLife - rainbow.life) / 60, 1);
+  const sun = getSunPos(simTime);
+  if (!sun) { rainbow.active = false; return; }
+
+  // Arc opposite the sun
+  const cx = worldToScreenX(sun.x) < PW / 2 ? PW * 0.75 : PW * 0.25;
+  const cy = HORIZON - VP.y + 20;
+  const r = Math.min(PW, PH) * 0.5;
+
+  const colors = [
+    [255, 0, 0],     // red
+    [255, 127, 0],   // orange
+    [255, 255, 0],   // yellow
+    [0, 200, 0],     // green
+    [0, 0, 255],     // blue
+    [75, 0, 130],    // indigo
+    [148, 0, 211],   // violet
+  ];
+
+  for (let i = 0; i < colors.length; i++) {
+    const cr = r - i * 3;
+    if (cr < 10) continue;
+    const [rc, gc, bc] = colors[i];
+    const alpha = fade * 0.06;
+    ctx.strokeStyle = `rgba(${rc},${gc},${bc},${alpha})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, cr, Math.PI * 0.9, Math.PI * 0.1, true); // upper arc
+    ctx.stroke();
   }
 }
 
@@ -2082,7 +2128,7 @@ function render(){
   }
   drawSunFG();drawWindWaves(logicTick);drawClouds();drawWaterHole(logicTick,animals);updateFootprints(animals);drawFgGrass(logicTick);drawDust(logicTick);drawWindSeeds(logicTick);
   const drawList=[];for(const a of animals)if(a.alive||a.state===STATE.DEAD)drawList.push({y:a.y,type:'a',ref:a});for(const t of trees)drawList.push({y:t.y,type:'t',ref:t});for(const s of shrubs)drawList.push({y:s.y,type:'s',ref:s});drawList.sort((a,b)=>a.y-b.y);for(const d of drawList){if(d.type==='a'){drawShadow(d.ref);d.ref.draw(ctx,VP.x,VP.y);drawRimLight(d.ref);drawExhaustion(d.ref);}else if(d.type==='t')drawTreeDyn(d.ref);else drawShrubDyn(d.ref);}
-  updateParticles(animals);drawFireflies(logicTick);drawCrickets(logicTick);updateAnimalCalls(logicTick);drawDustDevil(logicTick);drawShootingStars(logicTick);drawDistantLightning(logicTick);drawHeatShimmer(logicTick);drawDustHaze();drawMorningMist(logicTick);drawSunRays();drawVultures();drawOwl();drawEyeShine();drawRain();
+  updateParticles(animals);drawFireflies(logicTick);drawCrickets(logicTick);updateAnimalCalls(logicTick);drawDustDevil(logicTick);drawShootingStars(logicTick);drawDistantLightning(logicTick);drawHeatShimmer(logicTick);drawDustHaze();drawMorningMist(logicTick);drawSunRays();drawRainbow();drawVultures();drawOwl();drawEyeShine();drawRain();
   // Window vignette
   ctx.drawImage(vigCanvas, 0, 0);
   // Color grade
