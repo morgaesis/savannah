@@ -1503,6 +1503,24 @@ const minimapEl = document.getElementById('minimap');
 const mmCtx = minimapEl ? minimapEl.getContext('2d') : null;
 const MM_W = 80, MM_H = 24;
 
+// Click minimap to pan viewport
+if (minimapEl) {
+  let mmDrag = false;
+  const mmSetVP = (e) => {
+    const rect = minimapEl.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) / rect.width;
+    VP.x = wrapX(mx * WORLD_W - PW / 2);
+    bgDirty = true;
+  };
+  minimapEl.addEventListener('mousedown', (e) => { e.stopPropagation(); mmDrag = true; mmSetVP(e); });
+  document.addEventListener('mousemove', (e) => { if (mmDrag) mmSetVP(e); });
+  document.addEventListener('mouseup', () => { mmDrag = false; });
+  minimapEl.addEventListener('touchstart', (e) => { e.stopPropagation(); mmDrag = true; mmSetVP(e.touches[0]); }, { passive: true });
+  document.addEventListener('touchmove', (e) => { if (mmDrag && e.touches.length) mmSetVP(e.touches[0]); }, { passive: true });
+  document.addEventListener('touchend', () => { mmDrag = false; });
+  minimapEl.style.cursor = 'crosshair';
+}
+
 function updateMinimap() {
   if (!mmCtx) return;
   const amb = getAmbient(simTime);
@@ -1553,11 +1571,16 @@ function updateMinimap() {
   }
 
   // Viewport indicator (white rectangle outline)
-  const vpX = Math.floor(VP.x / WORLD_W * MM_W);
-  const vpW = Math.floor(PW / WORLD_W * MM_W * (WORLD_W / PW > 1 ? 1 : WORLD_W / PW));
+  // Viewport indicator (handles wrap)
+  const vpX = Math.floor(((VP.x % WORLD_W) + WORLD_W) % WORLD_W / WORLD_W * MM_W);
+  const vpW = Math.max(2, Math.floor(PW / WORLD_W * MM_W));
   mmCtx.strokeStyle = `rgba(255,255,255,${0.3 + amb * 0.2})`;
   mmCtx.lineWidth = 0.5;
-  mmCtx.strokeRect(vpX, 0, Math.max(2, Math.min(vpW, MM_W)), MM_H);
+  mmCtx.strokeRect(vpX, 0, vpW, MM_H);
+  // If viewport wraps past right edge, draw second rect at left
+  if (vpX + vpW > MM_W) {
+    mmCtx.strokeRect(0, 0, vpX + vpW - MM_W, MM_H);
+  }
 }
 
 // Pre-rendered window vignette overlay
