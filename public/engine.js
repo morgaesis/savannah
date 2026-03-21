@@ -297,7 +297,9 @@ function* behaviorLoop(self, getAnimals) {
     if (self.type==='lion') { const ht=isTwilight?30:isNight?35:55; if(self.memory.hunger>ht*(1-self.brain.huntDesire)){yield* lionHunt(self,getAnimals);continue;} }
     const thirsty=self.memory.thirst>45&&self._tick-self.memory.lastWater>800,hungry=self.memory.hunger>25,scared=self.memory.threats.length>0;
     const nR=isNight?3:isTwilight?1.5:1,mR=isHotMidday?1.8:1,nH=isNight?2.5:1,nG=isNight?0.3:1,nW=isNight?0.4:1;
-    const weights=[{w:self.brain.restDesire*(1+self.brain.laziness)*nR*mR,a:'rest'},{w:self.brain.grazeDesire*(hungry?2.5:0.5)*nG,a:'graze'},{w:self.brain.wanderDesire*(1+self.brain.curiosity)*nW,a:'wander'},{w:self.brain.waterDesire*(thirsty?4:0.3),a:'water'},{w:self.brain.herdDesire*(self.brain.herd?1.5:0)*nH,a:'herd'},{w:scared?0.8:0.05,a:'avoid'},{w:0.15,a:'idle'}];
+    // Heat increases thirst rate and water-seeking behavior
+    const hotMul = isHotMidday ? 2.0 : 1.0;
+    const weights=[{w:self.brain.restDesire*(1+self.brain.laziness)*nR*mR,a:'rest'},{w:self.brain.grazeDesire*(hungry?2.5:0.5)*nG,a:'graze'},{w:self.brain.wanderDesire*(1+self.brain.curiosity)*nW,a:'wander'},{w:self.brain.waterDesire*(thirsty?4*hotMul:0.3*hotMul),a:'water'},{w:self.brain.herdDesire*(self.brain.herd?1.5:0)*nH,a:'herd'},{w:scared?0.8:0.05,a:'avoid'},{w:0.15,a:'idle'}];
     const totalW=weights.reduce((s,o)=>s+o.w,0); let r=Math.random()*totalW,chosen='idle'; for(const{w,a}of weights){r-=w;if(r<=0){chosen=a;break;}}
     switch(chosen) {
       case 'rest': self.state=STATE.REST;self.targetVx=0;self.targetVy=0;yield randInt(300,1200)*(0.5+self.brain.laziness);break;
@@ -447,7 +449,10 @@ class Animal {
     return base * factor;
   }
   tick(globalTick) {
-    if(!this.alive&&this.state!==STATE.DEAD)return;this._tick=globalTick;this.frame++;this.memory.thirst+=0.008*this.brain.thirstRate;this.memory.hunger+=0.006*this.brain.hungerRate;this.memory.fear=Math.max(0,this.memory.fear-(this.memory.fearDirect?0.1:0.2));this.memory.threats=this.memory.threats.filter(t=>globalTick-t.time<900);
+    if(!this.alive&&this.state!==STATE.DEAD)return;this._tick=globalTick;this.frame++;
+    // Thirst accumulates faster during hot midday
+    const heatThirst = (simTime > 10 && simTime < 15) ? 1.8 : 1.0;
+    this.memory.thirst+=0.008*this.brain.thirstRate*heatThirst;this.memory.hunger+=0.006*this.brain.hungerRate;this.memory.fear=Math.max(0,this.memory.fear-(this.memory.fearDirect?0.1:0.2));this.memory.threats=this.memory.threats.filter(t=>globalTick-t.time<900);
     // Energy: depletes during sprinting, regenerates at rest
     const sprinting = this.state === STATE.FLEE || this.state === STATE.CHASE;
     if (sprinting) {
