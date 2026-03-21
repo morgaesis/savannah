@@ -1101,24 +1101,34 @@ function drawShadow(an) {
   const moon = !sun ? getMoonPos(simTime) : null;
   let sdx = -8;
   let shadowAlpha;
+  // Shadow length scales with sun angle: long at dawn/dusk, short at noon
+  let sunElev = 1; // 0=horizon, 1=zenith
   if (sun) {
-    sdx = clamp(Math.round(wrapDeltaX(an.x - sun.x) * 0.08), -15, 15);
+    sunElev = Math.sin(sun.angle); // 0 at horizon, 1 at noon
+    sdx = clamp(Math.round(wrapDeltaX(an.x - sun.x) * 0.08), -20, 20);
     shadowAlpha = 0.1 * a;
   } else if (moon) {
     sdx = clamp(Math.round(wrapDeltaX(an.x - moon.x) * 0.06), -12, 12);
-    shadowAlpha = 0.04; // faint moon shadow
+    shadowAlpha = 0.04;
+    sunElev = 0.5;
   } else {
-    return; // no light source, no shadow
+    return;
   }
 
   const hSy = HORIZON - VP.y;
   const dT = sy > hSy ? (sy - hSy) / Math.max(1, PH - hSy) : 0;
   const sc = 0.85 + dT * 0.25;
+  // Shadow elongation: 1x at noon, up to 3x at horizon
+  const elongation = 1 + (1 - sunElev) * 2;
   const bL = an.type === 'elephant' ? 14 : an.type === 'giraffe' ? 10 : an.type === 'lion' ? 10 : 7;
-  const len = Math.round(bL * sc);
-  const sd = Math.round(sdx * sc);
+  const len = Math.round(bL * sc * elongation);
+  const sd = Math.round(sdx * sc * elongation);
   ctx.fillStyle = `rgba(15,12,8,${shadowAlpha})`;
   ctx.fillRect(sx + Math.min(0, sd), sy + 1, Math.abs(sd) + len, 1);
+  // Thicker shadow at low sun angles
+  if (elongation > 1.5) {
+    ctx.fillRect(sx + Math.min(0, sd) + 1, sy + 2, Math.abs(sd) + len - 2, 1);
+  }
   if (an.type === 'elephant' || an.type === 'giraffe') {
     ctx.fillRect(sx + Math.min(0, sd) + 2, sy + 2, Math.abs(sd) + len - 4, 1);
   }
