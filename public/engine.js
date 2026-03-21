@@ -754,6 +754,49 @@ function spawnParticle(type,x,y,vx,vy,life,size,color){particles.push({type,x,y,
 function spawnDustBurst(x,y,count,spread){for(let i=0;i<count;i++)spawnParticle('dust',x+rand(-spread,spread),y+rand(-1,1),rand(-0.15,0.15),rand(-0.12,-0.02),randInt(25,55),rand(1.5,3.5),[140,120,80]);}
 function spawnSplash(x,y){for(let i=0;i<4;i++)spawnParticle('splash',x+rand(-3,3),y+rand(-2,0),rand(-0.08,0.08),rand(-0.15,-0.05),randInt(15,30),rand(1,2),[100,140,180]);}
 function birdScatterEffect(x,y){for(let i=0;i<6;i++)spawnParticle('debris',x+rand(-4,4),y+rand(-1,1),rand(-0.2,0.2),rand(-0.15,-0.05),randInt(10,25),rand(1,1.5),[70,65,50]);}
+// Animal footprints: fade over time, form natural paths
+const footprints = [];
+const MAX_FOOTPRINTS = 200;
+
+function updateFootprints(animalList) {
+  const amb = getAmbient(simTime);
+
+  // Spawn footprints from moving ground animals
+  for (const a of animalList) {
+    if (!a.alive || a.brain.flying) continue;
+    if (a.state === STATE.REST || a.state === STATE.DEAD || a.state === STATE.PERCH) continue;
+    const speed = Math.hypot(a.vx, a.vy);
+    if (speed < 0.03) continue;
+    // Frequency based on speed: running = frequent, walking = sparse
+    const interval = speed > 0.3 ? 6 : speed > 0.1 ? 15 : 30;
+    if (a.frame % interval !== 0) continue;
+    footprints.push({
+      x: a.x + (pcgHash(a.frame, Math.floor(a.seed * 100), 1234) - 0.5) * 2,
+      y: a.y + 1,
+      life: 600, // ~20 seconds
+      maxLife: 600,
+      size: a.type === 'elephant' ? 2 : 1,
+    });
+  }
+
+  // Cap
+  while (footprints.length > MAX_FOOTPRINTS) footprints.shift();
+
+  // Update and draw
+  for (let i = footprints.length - 1; i >= 0; i--) {
+    const fp = footprints[i];
+    fp.life--;
+    if (fp.life <= 0) { footprints.splice(i, 1); continue; }
+    const sx = worldToScreenX(fp.x);
+    const sy = Math.floor(fp.y - VP.y);
+    if (sx < 0 || sx >= PW || sy < 0 || sy >= PH) continue;
+    const fade = fp.life / fp.maxLife;
+    const alpha = fade * fade * 0.06 * amb; // quadratic fade, very subtle
+    ctx.fillStyle = `rgba(40,30,18,${alpha})`;
+    ctx.fillRect(sx, sy, fp.size, 1);
+  }
+}
+
 function updateParticles(al){const a=getAmbient(simTime);for(const an of al){if(!an.alive||an.brain.flying)continue;const running=an.state===STATE.FLEE||an.state===STATE.CHASE;if(running&&an.frame%4===0){const cnt=an.type==='elephant'?3:1;for(let i=0;i<cnt;i++)spawnParticle('dust',an.x-an.vx*2+rand(-3,3),an.y+rand(0,2),-an.vx*0.15+rand(-0.12,0.12),rand(-0.1,-0.02),randInt(30,60),rand(2,4),[140,120,80]);}else if(Math.hypot(an.vx,an.vy)>an.brain.speed*0.4&&an.frame%15===0)spawnParticle('dust',an.x-an.vx*2+rand(-2,2),an.y+rand(0,1),rand(-0.05,0.05),rand(-0.05,-0.01),randInt(15,35),rand(1,2),[130,115,75]);if(an.state===STATE.DRINK&&an.frame%50===0)spawnSplash(an.x,an.y);if(an.state===STATE.GRAZE&&an.frame%80===0)spawnParticle('debris',an.x+rand(-2,2),an.y-2,rand(-0.04,0.04),rand(-0.06,-0.02),randInt(10,20),1,[80,90,35]);}for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.x+=p.vx;p.y+=p.vy;p.vy+=0.002;p.vx*=0.96;p.vy*=0.97;p.life--;if(p.life<=0){particles.splice(i,1);continue;}const sx=worldToScreenX(p.x),sy=Math.floor(p.y-VP.y);if(sx<-5||sx>=PW+5||sy<-5||sy>=PH+5)continue;const fade=p.life/p.maxLife,al2=fade*(p.type==='dust'?0.35:p.type==='splash'?0.5:0.3)*a,s=Math.max(1,Math.ceil(p.size*(0.5+fade*0.5)));ctx.fillStyle=`rgba(${p.color[0]},${p.color[1]},${p.color[2]},${al2})`;ctx.fillRect(sx,sy,s,s);if(p.type==='dust'&&s>=2&&fade>0.5){ctx.fillStyle=`rgba(${Math.min(255,p.color[0]+30)},${Math.min(255,p.color[1]+25)},${Math.min(255,p.color[2]+15)},${al2*0.5})`;ctx.fillRect(sx,sy,1,1);}}if(particles.length>150)particles.splice(0,particles.length-150);}
 // Moon position (opposite side of sun arc)
 function getMoonPos(t) {
@@ -1185,7 +1228,7 @@ function render(){
     ctx.fillStyle = `rgba(60,70,100,${mlAlpha * 0.3})`;
     ctx.fillRect(0, 0, PW, Math.max(0, hS));
   }
-  drawSunFG();drawWindWaves(logicTick);drawClouds();drawWaterHole(logicTick,animals);drawFgGrass(logicTick);drawDust(logicTick);drawWindSeeds(logicTick);
+  drawSunFG();drawWindWaves(logicTick);drawClouds();drawWaterHole(logicTick,animals);updateFootprints(animals);drawFgGrass(logicTick);drawDust(logicTick);drawWindSeeds(logicTick);
   const drawList=[];for(const a of animals)if(a.alive||a.state===STATE.DEAD)drawList.push({y:a.y,type:'a',ref:a});for(const t of trees)drawList.push({y:t.y,type:'t',ref:t});for(const s of shrubs)drawList.push({y:s.y,type:'s',ref:s});drawList.sort((a,b)=>a.y-b.y);for(const d of drawList){if(d.type==='a'){drawShadow(d.ref);d.ref.draw(ctx,VP.x,VP.y);}else if(d.type==='t')drawTreeDyn(d.ref);else drawShrubDyn(d.ref);}
   updateParticles(animals);drawFireflies(logicTick);drawCrickets(logicTick);drawDustDevil(logicTick);drawShootingStars(logicTick);drawDistantLightning(logicTick);drawHeatShimmer(logicTick);drawMorningMist(logicTick);drawSunRays();drawVultures();drawOwl();drawEyeShine();
   // Window vignette
