@@ -1696,9 +1696,6 @@ function render(){
     // Minimap
     updateMinimap();
   }
-  // Dismiss loading screen after first frame
-  const loadEl = document.getElementById('loading');
-  if (loadEl) loadEl.style.display = 'none';
   // First visit hint
   if (!localStorage.getItem('ss_visited')) {
     localStorage.setItem('ss_visited', '1');
