@@ -195,15 +195,18 @@ regenerateWorld();
 // ── Animal System ──
 const STATE = {IDLE:'idle',WANDER:'wander',GRAZE:'graze',DRINK:'drink',FLEE:'flee',HUNT:'hunt',STALK:'stalk',CHASE:'chase',REST:'rest',FLOCK:'flock',ALERT:'alert',APPROACH_WATER:'apw',PERCH:'perch',WALK_GROUND:'walk_ground',DEAD:'dead',EAT:'eat'};
 function makeBrain(o) { return Object.assign({speed:0.15,fleeSpeed:0.5,huntSpeed:0.4,huntRange:80,restDesire:0.3,grazeDesire:0.3,wanderDesire:0.2,waterDesire:0.15,herdDesire:0.3,huntDesire:0.1,fearSensitivity:0.6,boldness:0.6,laziness:0.5,curiosity:0.3,thirstRate:1,hungerRate:1,prey:false,herd:false,flying:false},o); }
+// Speeds based on real animal data (1.0 ≈ 80 km/h top sprint)
+// walk = typical cruising, fleeSpeed/huntSpeed = top sprint
+// stamina = ticks at top speed before exhaustion (30 tps)
 const BRAINS = {
-  zebra:makeBrain({speed:0.15,fleeSpeed:0.55,prey:true,herd:true,restDesire:0.2,grazeDesire:0.4,wanderDesire:0.15,waterDesire:0.1,herdDesire:0.4,fearSensitivity:0.7,boldness:0.5,laziness:0.4}),
-  gazelle:makeBrain({speed:0.18,fleeSpeed:0.7,prey:true,herd:true,restDesire:0.2,grazeDesire:0.35,wanderDesire:0.15,waterDesire:0.1,herdDesire:0.5,fearSensitivity:0.8,boldness:0.4,laziness:0.35}),
-  wildebeest:makeBrain({speed:0.14,fleeSpeed:0.5,prey:true,herd:true,restDesire:0.2,grazeDesire:0.4,wanderDesire:0.2,waterDesire:0.1,herdDesire:0.45,fearSensitivity:0.6,boldness:0.5,laziness:0.4}),
-  warthog:makeBrain({speed:0.2,fleeSpeed:0.65,prey:true,herd:false,restDesire:0.2,grazeDesire:0.35,wanderDesire:0.25,waterDesire:0.1,herdDesire:0.1,fearSensitivity:0.7,boldness:0.6,laziness:0.3}),
-  lion:makeBrain({speed:0.08,huntSpeed:0.5,huntRange:90,restDesire:0.55,grazeDesire:0,wanderDesire:0.1,waterDesire:0.05,herdDesire:0.15,huntDesire:0.15,fearSensitivity:0.1,boldness:1,laziness:0.7}),
-  elephant:makeBrain({speed:0.04,herd:true,restDesire:0.25,grazeDesire:0.3,wanderDesire:0.15,waterDesire:0.2,herdDesire:0.35,fearSensitivity:0.05,boldness:1,laziness:0.5}),
-  giraffe:makeBrain({speed:0.05,restDesire:0.15,grazeDesire:0.4,wanderDesire:0.2,waterDesire:0.1,herdDesire:0.1,fearSensitivity:0.2,boldness:0.8,laziness:0.4}),
-  bird:makeBrain({speed:0.25,flying:true,restDesire:0.25,grazeDesire:0.15,wanderDesire:0.3,waterDesire:0.05,herdDesire:0.3,fearSensitivity:0.3,boldness:0.5,laziness:0.3}),
+  zebra:makeBrain({speed:0.07,fleeSpeed:0.52,stamina:1200,prey:true,herd:true,restDesire:0.2,grazeDesire:0.4,wanderDesire:0.15,waterDesire:0.1,herdDesire:0.4,fearSensitivity:0.7,boldness:0.5,laziness:0.4}),
+  gazelle:makeBrain({speed:0.08,fleeSpeed:0.72,stamina:2400,prey:true,herd:true,restDesire:0.2,grazeDesire:0.35,wanderDesire:0.15,waterDesire:0.1,herdDesire:0.5,fearSensitivity:0.8,boldness:0.4,laziness:0.35}),
+  wildebeest:makeBrain({speed:0.07,fleeSpeed:0.65,stamina:1500,prey:true,herd:true,restDesire:0.2,grazeDesire:0.4,wanderDesire:0.2,waterDesire:0.1,herdDesire:0.45,fearSensitivity:0.6,boldness:0.5,laziness:0.4}),
+  warthog:makeBrain({speed:0.06,fleeSpeed:0.38,stamina:900,prey:true,herd:false,restDesire:0.2,grazeDesire:0.35,wanderDesire:0.25,waterDesire:0.1,herdDesire:0.1,fearSensitivity:0.7,boldness:0.6,laziness:0.3}),
+  lion:makeBrain({speed:0.06,huntSpeed:0.65,stamina:600,huntRange:90,restDesire:0.55,grazeDesire:0,wanderDesire:0.1,waterDesire:0.05,herdDesire:0.15,huntDesire:0.15,fearSensitivity:0.1,boldness:1,laziness:0.7}),
+  elephant:makeBrain({speed:0.05,fleeSpeed:0.32,stamina:1200,herd:true,restDesire:0.25,grazeDesire:0.3,wanderDesire:0.15,waterDesire:0.2,herdDesire:0.35,fearSensitivity:0.05,boldness:1,laziness:0.5}),
+  giraffe:makeBrain({speed:0.06,fleeSpeed:0.47,stamina:1200,restDesire:0.15,grazeDesire:0.4,wanderDesire:0.2,waterDesire:0.1,herdDesire:0.1,fearSensitivity:0.2,boldness:0.8,laziness:0.4}),
+  bird:makeBrain({speed:0.08,flying:true,stamina:9999,restDesire:0.25,grazeDesire:0.15,wanderDesire:0.3,waterDesire:0.05,herdDesire:0.3,fearSensitivity:0.3,boldness:0.5,laziness:0.3}),
 };
 function individualizeBrain(base) { const b=Object.assign({},base); const v=(val,r)=>clamp(val+rand(-r,r),0,1); b.speed*=rand(0.75,1.25);b.fleeSpeed*=rand(0.8,1.2);b.huntSpeed*=rand(0.8,1.2);b.huntRange*=rand(0.7,1.3); b.restDesire=v(b.restDesire,0.2);b.grazeDesire=v(b.grazeDesire,0.2);b.wanderDesire=v(b.wanderDesire,0.15);b.waterDesire=v(b.waterDesire,0.1);b.herdDesire=v(b.herdDesire,0.25);b.huntDesire=v(b.huntDesire,0.1);b.fearSensitivity=v(b.fearSensitivity,0.25);b.boldness=v(b.boldness,0.3);b.laziness=v(b.laziness,0.3);b.curiosity=v(b.curiosity,0.25);b.thirstRate=rand(0.6,1.5);b.hungerRate=rand(0.6,1.5); return b; }
 
@@ -357,11 +360,24 @@ function* birdBehavior(self, getAnimals) {
 class Animal {
   constructor(type, x, y) {
     this.type=type;this.brain=individualizeBrain(BRAINS[type]);this.x=wrapX(x);this.y=y;this.vx=0;this.vy=0;this.targetVx=0;this.targetVy=0;this.state=STATE.IDLE;this.facing=1;this.frame=0;this.seed=Math.random()*1000;this.alive=true;this.homeX=this.x;this.homeY=y;this._tick=0;this._flockPhase=rand(0,Math.PI*2);this._walkDist=0;
+    this.energy = 1.0; // 0-1, depletes during sprinting, regenerates at rest
     this.memory={lastWater:-9999,thirst:rand(0,40),hunger:rand(0,40),fear:0,threats:[],huntTarget:null,fleeFrom:null,fearDirect:false};
     this._fiber=behaviorLoop(this,()=>animals);this._yieldRemaining=randInt(30,200);
   }
+  getSprintSpeed() {
+    const base = this.brain.fleeSpeed || this.brain.huntSpeed || this.brain.speed * 3;
+    const factor = this.energy > 0.5 ? 1.0 : 0.4 + this.energy * 1.2;
+    return base * factor;
+  }
   tick(globalTick) {
     if(!this.alive&&this.state!==STATE.DEAD)return;this._tick=globalTick;this.frame++;this.memory.thirst+=0.008*this.brain.thirstRate;this.memory.hunger+=0.006*this.brain.hungerRate;this.memory.fear=Math.max(0,this.memory.fear-(this.memory.fearDirect?0.1:0.2));this.memory.threats=this.memory.threats.filter(t=>globalTick-t.time<900);
+    // Energy: depletes during sprinting, regenerates at rest
+    const sprinting = this.state === STATE.FLEE || this.state === STATE.CHASE;
+    if (sprinting) {
+      this.energy = Math.max(0, this.energy - 1 / (this.brain.stamina || 600));
+    } else {
+      this.energy = Math.min(1, this.energy + 0.002); // slow recovery
+    }
     // Threat interrupt
     if(this.brain.prey&&this.alive&&globalTick%8===(Math.floor(this.seed)%8)&&this.state!==STATE.FLEE&&this.state!==STATE.ALERT){const threat=scanForThreat(this,animals);if(threat){this.state=STATE.FLEE;this.memory.fleeFrom={x:threat.x,y:threat.y};propagateAlarm(this,threat,animals);this._fiber=(function*(self){for(let i=0,dur=200+Math.floor(pcgHash(self.seed,globalTick,99)*300);i<dur&&self.alive;i++){const ft=self.memory.fleeFrom;if(ft){const dir=dirFrom(ft,self);self.targetVx=dir.dx*self.brain.fleeSpeed+(pcgHash(Math.floor(self.x),i,self.seed)-0.5)*0.4;self.targetVy=dir.dy*self.brain.fleeSpeed*0.15;}yield 1;}self.homeX=self.x;self.homeY=self.y;self.state=STATE.IDLE;self._fiber=behaviorLoop(self,()=>animals);self._yieldRemaining=30+Math.floor(pcgHash(self.seed,globalTick,77)*90);})(this);this._yieldRemaining=0;}}
     // Sleep pressure
