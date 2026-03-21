@@ -913,18 +913,22 @@ function renderBg() {
       bgCtx.fillRect(0, py, PW, 1);
     }
   }
-  // Tree shadows: direction based on sun or moon
+  // Tree shadows: direction and length based on sun/moon elevation
   const lightSrc = sun || getMoonPos(t);
   const shadowDir = lightSrc ? clamp(Math.sign(VP.x + PW/2 - lightSrc.x), -1, 1) : -1;
   const shadowAlpha = sun ? 0.12 * amb : (lightSrc ? 0.035 : 0);
+  const sunElev = sun ? Math.sin(sun.angle) : 0.5; // 0=horizon, 1=zenith
+  const treeShadowStretch = 1 + (1 - sunElev) * 2.5; // 1x at noon, 3.5x at horizon
   if (shadowAlpha > 0.005) {
     for (const tr of trees) {
       const x = worldToScreenX(tr.x), y = Math.floor(tr.y - VP.y);
       if (x > -30 && x < PW + 30) {
+        const sLen = Math.round(tr.s * 10 * treeShadowStretch);
         bgCtx.fillStyle = `rgba(20,15,10,${shadowAlpha})`;
-        const sLen = tr.s * 10;
         const sOff = shadowDir < 0 ? -sLen : 0;
         bgCtx.fillRect(x + sOff, y - 1, sLen, 2);
+        // Thicker shadow at low sun
+        if (treeShadowStretch > 1.5) bgCtx.fillRect(x + sOff + 2, y, sLen - 4, 1);
       }
     }
   }
