@@ -323,7 +323,23 @@ function* behaviorLoop(self, getAnimals) {
     if (self.brain.prey) { const threat=scanForThreat(self,getAnimals()); if(threat) { self.state=STATE.ALERT;self.targetVx=0;self.targetVy=0;const dir=dirFrom(self,threat);self.facing=dir.dx>0?1:-1;yield randInt(20,60); if(self.memory.fear>20*self.brain.boldness){self.state=STATE.FLEE;self.memory.fleeFrom={x:threat.x,y:threat.y};for(let i=0,dur=randInt(200,500);i<dur&&self.alive;i++){const ft=self.memory.fleeFrom,dir=dirFrom(ft,self);self.targetVx=dir.dx*self.getSprintSpeed()+(pcgHash(i,Math.floor(self.seed*100),88)-0.5)*0.5;self.targetVy=dir.dy*self.getSprintSpeed()*0.15;yield 1;}self.homeX=self.x;self.homeY=self.y;} self.state=STATE.IDLE;yield randInt(60,180);continue; } }
     if (self.brain.flying) { yield* birdBehavior(self,getAnimals); continue; }
     const isNight=simTime<5.5||simTime>20,isDusk=simTime>17&&simTime<=20,isDawn=simTime>=5.5&&simTime<7,isTwilight=isDusk||isDawn,isHotMidday=simTime>11&&simTime<14;
-    if (self.type==='lion') { const ht=isTwilight?30:isNight?35:55; if(self.memory.hunger>ht*(1-self.brain.huntDesire)){yield* lionHunt(self,getAnimals);continue;} }
+    if (self.type==='lion') {
+      // Pre-hunt positioning: drift toward nearest prey herd in late afternoon
+      const preHunt = simTime > 15 && simTime < 17 && self.memory.hunger > 20;
+      if (preHunt && self.state !== STATE.STALK && self.state !== STATE.CHASE) {
+        let nearPrey = null, nd = Infinity;
+        for (const o of getAnimals()) { if (o.alive && o.brain.prey) { const d = dist(self, o); if (d < 150 && d < nd) { nearPrey = o; nd = d; } } }
+        if (nearPrey && nd > 40) {
+          const dir = dirFrom(self, nearPrey);
+          self.targetVx = dir.dx * self.brain.speed * 0.3;
+          self.targetVy = dir.dy * self.brain.speed * 0.15;
+          self.state = STATE.WANDER;
+          yield randInt(60, 150);
+          continue;
+        }
+      }
+      const ht=isTwilight?30:isNight?35:55; if(self.memory.hunger>ht*(1-self.brain.huntDesire)){yield* lionHunt(self,getAnimals);continue;}
+    }
     const thirsty=self.memory.thirst>45&&self._tick-self.memory.lastWater>800,hungry=self.memory.hunger>25,scared=self.memory.threats.length>0;
     const nR=isNight?3:isTwilight?1.5:1,mR=isHotMidday?1.8:1,nH=isNight?2.5:1,nG=isNight?0.3:1,nW=isNight?0.4:1;
     // Heat increases thirst rate and water-seeking behavior
