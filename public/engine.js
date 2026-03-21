@@ -981,8 +981,33 @@ function drawWaterHole(tick, al) {
   }
 }
 
-const clouds=[];for(let i=0;i<5;i++){const w=randInt(18,40),puffs=[];for(let j=0;j<randInt(3,6);j++){const pw=randInt(6,Math.floor(w*0.6)),ph=randInt(3,6);puffs.push({dx:randInt(-2,w-pw+2),dy:randInt(-ph+2,2),w:pw,h:ph});}clouds.push({x:rand(0,WORLD_W),y:rand(15,HORIZON*0.35),w,speed:rand(0.008,0.025),puffs});}
-function drawClouds(){const a=getAmbient(simTime);if(a<0.1)return;const sun=getSunPos(simTime),t=simTime;let cr,cg,cb;if(t<7||t>17.5){cr=240;cg=180;cb=140;}else if(t>10&&t<15){cr=235;cg=235;cb=240;}else{cr=240;cg=220;cb=210;}for(const c of clouds){c.x=wrapX(c.x+c.speed);const sx=worldToScreenX(c.x),sy=Math.floor(c.y-VP.y);if(sx<-60||sx>PW+60||sy<-20||sy>PH)continue;if(sun){ctx.fillStyle=`rgba(0,0,0,${0.04*a})`;ctx.fillRect(sx+Math.round(wrapDeltaX(c.x-sun.x)*0.04),HORIZON-VP.y+5,c.w,3);}for(const p of c.puffs){const px=sx+p.dx,py=sy+p.dy;ctx.fillStyle=`rgba(${Math.round(cr*0.7)},${Math.round(cg*0.65)},${Math.round(cb*0.6)},${0.2*a})`;ctx.fillRect(px,py+Math.floor(p.h*0.5),p.w,Math.ceil(p.h*0.5));ctx.fillStyle=`rgba(${cr},${cg},${cb},${0.3*a})`;ctx.fillRect(px+1,py+1,p.w-2,p.h-2);ctx.fillStyle=`rgba(255,${Math.min(255,cg+15)},${Math.min(255,cb+10)},${0.35*a})`;ctx.fillRect(px+1,py,p.w-2,2);ctx.fillStyle=`rgba(255,255,${Math.min(255,cb+30)},${0.18*a})`;ctx.fillRect(px+3,py-1,Math.max(1,p.w-6),1);}}}
+// Clouds: larger, fluffier, more visible during daytime
+const clouds=[];for(let i=0;i<6;i++){
+  const w=randInt(25,55), puffs=[];
+  const puffCount = randInt(4, 8);
+  // Build a cloud shape from overlapping puffs
+  for(let j=0;j<puffCount;j++){
+    const pw=randInt(8,Math.floor(w*0.65)), ph=randInt(4,8);
+    puffs.push({dx:randInt(-3,w-pw+3), dy:randInt(-ph+3,3), w:pw, h:ph});
+  }
+  clouds.push({x:rand(0,WORLD_W), y:rand(12,HORIZON*0.32), w, speed:rand(0.006,0.02), puffs});
+}
+function drawClouds(){const a=getAmbient(simTime);if(a<0.1)return;const sun=getSunPos(simTime),t=simTime;let cr,cg,cb;if(t<7||t>17.5){cr=240;cg=180;cb=140;}else if(t>10&&t<15){cr=235;cg=235;cb=240;}else{cr=240;cg=220;cb=210;}for(const c of clouds){c.x=wrapX(c.x+c.speed);const sx=worldToScreenX(c.x),sy=Math.floor(c.y-VP.y);if(sx<-60||sx>PW+60||sy<-20||sy>PH)continue;if(sun){ctx.fillStyle=`rgba(0,0,0,${0.04*a})`;ctx.fillRect(sx+Math.round(wrapDeltaX(c.x-sun.x)*0.04),HORIZON-VP.y+5,c.w,3);}for(const p of c.puffs){const px=sx+p.dx,py=sy+p.dy;
+      // Underside shadow
+      ctx.fillStyle=`rgba(${Math.round(cr*0.65)},${Math.round(cg*0.6)},${Math.round(cb*0.55)},${0.25*a})`;
+      ctx.fillRect(px,py+Math.floor(p.h*0.5),p.w,Math.ceil(p.h*0.5));
+      // Main body
+      ctx.fillStyle=`rgba(${cr},${cg},${cb},${0.4*a})`;
+      ctx.fillRect(px+1,py+1,p.w-2,p.h-2);
+      // Bright top edge
+      ctx.fillStyle=`rgba(255,${Math.min(255,cg+15)},${Math.min(255,cb+10)},${0.5*a})`;
+      ctx.fillRect(px+1,py,p.w-2,2);
+      // Highlight peak
+      ctx.fillStyle=`rgba(255,255,${Math.min(255,cb+30)},${0.25*a})`;
+      ctx.fillRect(px+2,py-1,Math.max(1,p.w-4),1);
+    }
+  }
+}
 
 const windSeeds=[];for(let i=0;i<10;i++)windSeeds.push({x:rand(0,PW),y:rand(10,PH-30),vx:rand(0.08,0.2),wobblePhase:rand(0,Math.PI*2),wobbleAmp:rand(0.3,0.8),wobbleFreq:rand(0.015,0.035),size:rand(0.8,1.5),bright:rand(0.3,0.7)});
 function drawWindWaves(tk){const a=getAmbient(simTime);if(a<0.15)return;const hY=HORIZON-VP.y;if(hY>=PH)return;for(let w=0;w<3;w++){const sp=0.3+w*0.15,wX=((tk*sp+w*200)%(PW+80))-40,wW=25+w*10,bY=hY+10+w*((PH-hY)/4);for(let dx=0;dx<wW;dx++){const px=Math.floor(wX+dx);if(px<0||px>=PW)continue;const py=Math.floor(bY+Math.round((pcgHash(dx,w,7777)-0.5)*6));if(py<hY||py>=PH)continue;ctx.fillStyle=`rgba(140,130,70,${Math.sin(dx/wW*Math.PI)*0.06*a})`;ctx.fillRect(px,py-1,1,3);}}}
