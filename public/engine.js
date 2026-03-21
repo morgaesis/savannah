@@ -543,10 +543,26 @@ class Animal {
     const acc=this.state===STATE.FLEE?0.1:0.025;this.vx+=(this.targetVx-this.vx)*acc;this.vy+=(this.targetVy-this.vy)*acc;
     if(this.state===STATE.WANDER||this.state===STATE.GRAZE||this.state===STATE.WALK_GROUND){this.vx+=(pcgHash(globalTick,Math.floor(this.seed*1000),1)-0.5)*0.012;this.vy+=(pcgHash(globalTick,Math.floor(this.seed*1000),2)-0.5)*0.004;}
     const nearSeam = this.x < 20 || this.x > WORLD_W - 20;
-    // Herding
+    // Herding (elephants follow nearest mate in single file; others pull toward center)
     if(this.brain.herd&&this.alive&&!this.brain.flying&&this.state!==STATE.FLEE&&this.state!==STATE.CHASE){
       let hdx=0,hcy=0,hn=0;
-      for(const o of animals){if(o===this||!o.alive||o.type!==this.type)continue;if(dist(this,o)<100){hdx+=wrapDeltaX(o.x-this.x);hcy+=o.y;hn++;}}
+      if (this.type === 'elephant') {
+        // Follow nearest elephant that's ahead (single-file behavior)
+        let nearest = null, nd = Infinity;
+        for (const o of animals) {
+          if (o === this || !o.alive || o.type !== 'elephant') continue;
+          const d = dist(this, o);
+          if (d < 60 && d > 8 && d < nd) { nearest = o; nd = d; }
+        }
+        if (nearest) {
+          // Follow behind: aim for a point behind the leader
+          const behind = wrapDeltaX(nearest.x - this.x);
+          hdx = behind - Math.sign(behind) * 12; // stay 12px behind
+          hcy = nearest.y; hn = 1;
+        }
+      } else {
+        for(const o of animals){if(o===this||!o.alive||o.type!==this.type)continue;if(dist(this,o)<100){hdx+=wrapDeltaX(o.x-this.x);hcy+=o.y;hn++;}}
+      }
       if(hn>0){
         const cdx=hdx/hn,cdy=hcy/hn-this.y,d=Math.hypot(cdx,cdy);
         if(d>15){
