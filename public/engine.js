@@ -540,8 +540,11 @@ function* goToWater(self) {
     if (dir.d < 8) {
       self.state = STATE.DRINK;
       self.targetVx = 0; self.targetVy = 0;
-      // Face the water
       self.facing = wrapDeltaX(waterHole.x - self.x) > 0 ? 1 : -1;
+      // Big splash for elephants arriving at water
+      if (self.type === 'elephant') {
+        for (let s = 0; s < 6; s++) spawnParticle('splash', self.x+rand(-5,5), self.y+rand(-2,1), rand(-0.12,0.12), rand(-0.2,-0.06), randInt(15,30), rand(1.5,2.5), [90,130,170]);
+      }
       for (let j = 0, dur = randInt(200, 500); j < dur; j++) {
         self.memory.thirst = Math.max(0, self.memory.thirst - 0.08);
         if (self.memory.thirst <= 2) break;
