@@ -1135,7 +1135,10 @@ const clouds=[];for(let i=0;i<6;i++){
   }
   clouds.push({x:rand(0,WORLD_W), y:rand(12,HORIZON*0.32), w, speed:rand(0.006,0.02), puffs});
 }
-function drawClouds(){const a=getAmbient(simTime);if(a<0.1)return;const sun=getSunPos(simTime),t=simTime;let cr,cg,cb;if(t<7||t>17.5){cr=240;cg=180;cb=140;}else if(t>10&&t<15){cr=235;cg=235;cb=240;}else{cr=240;cg=220;cb=210;}for(const c of clouds){c.x=wrapX(c.x+c.speed);const sx=worldToScreenX(c.x),sy=Math.floor(c.y-VP.y);if(sx<-60||sx>PW+60||sy<-20||sy>PH)continue;if(sun){ctx.fillStyle=`rgba(0,0,0,${0.04*a})`;ctx.fillRect(sx+Math.round(wrapDeltaX(c.x-sun.x)*0.04),HORIZON-VP.y+5,c.w,3);}for(const p of c.puffs){const px=sx+p.dx,py=sy+p.dy;
+function drawClouds(){const a=getAmbient(simTime);if(a<0.1)return;const sun=getSunPos(simTime),t=simTime;let cr,cg,cb;if(t<7||t>17.5){cr=240;cg=180;cb=140;}else if(t>10&&t<15){cr=235;cg=235;cb=240;}else{cr=240;cg=220;cb=210;}for(const c of clouds){
+    // Higher clouds drift faster (altitude parallax)
+    const altFactor = 1 + (1 - c.y / (HORIZON * 0.35)) * 0.5;
+    c.x=wrapX(c.x+c.speed*altFactor);const sx=worldToScreenX(c.x),sy=Math.floor(c.y-VP.y);if(sx<-60||sx>PW+60||sy<-20||sy>PH)continue;if(sun){ctx.fillStyle=`rgba(0,0,0,${0.04*a})`;ctx.fillRect(sx+Math.round(wrapDeltaX(c.x-sun.x)*0.04),HORIZON-VP.y+5,c.w,3);}for(const p of c.puffs){const px=sx+p.dx,py=sy+p.dy;
       // Underside shadow
       ctx.fillStyle=`rgba(${Math.round(cr*0.65)},${Math.round(cg*0.6)},${Math.round(cb*0.55)},${0.25*a})`;
       ctx.fillRect(px,py+Math.floor(p.h*0.5),p.w,Math.ceil(p.h*0.5));
