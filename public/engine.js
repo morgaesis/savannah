@@ -2585,8 +2585,33 @@ function initAudio() {
     }
   }, 2000);
 
+  // Frog chorus: short rising "peep" calls at dusk/night near waterhole
+  function scheduleFrog() {
+    const isDusk = simTime > 17.5 && simTime < 22;
+    const delay = isDusk ? rand(0.5, 2.0) : rand(8, 20);
+    setTimeout(() => {
+      if (!audioCtx || audioCtx.state === 'closed') return;
+      if (simTime > 17.5 || simTime < 5) {
+        const osc = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        const baseFreq = rand(2500, 4000);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(baseFreq, audioCtx.currentTime);
+        osc.frequency.linearRampToValueAtTime(baseFreq * 1.3, audioCtx.currentTime + 0.05);
+        g.gain.setValueAtTime(0, audioCtx.currentTime);
+        g.gain.linearRampToValueAtTime(0.015, audioCtx.currentTime + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+        osc.connect(g).connect(master);
+        osc.start(audioCtx.currentTime);
+        osc.stop(audioCtx.currentTime + 0.1);
+      }
+      scheduleFrog();
+    }, delay * 1000);
+  }
+
   scheduleCricket();
   scheduleBird();
+  scheduleFrog();
 }
 
 // Event sound effects (called from detectEvents)
