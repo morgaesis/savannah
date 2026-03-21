@@ -482,8 +482,20 @@ class Animal {
         }
       }
     }
-    // Collision
-    if(!this.brain.flying||this.state===STATE.PERCH||this.state===STATE.WALK_GROUND){const ps=this.type==='elephant'?12:this.type==='giraffe'?8:5;for(const o of spatialGrid.query(this.x,this.y,ps)){if(o===this||!o.alive)continue;if(o.brain.flying&&o.state!==STATE.PERCH&&o.state!==STATE.WALK_GROUND)continue;const dx=wrapDeltaX(this.x-o.x),dy=this.y-o.y,d=Math.hypot(dx,dy);if(d<ps&&d>0.1){const push=(ps-d)/ps*0.04;this.vx+=(dx/d)*push;this.vy+=(dy/d)*push*0.3;}}}
+    // Collision avoidance (force scales with speed so sprinting animals still dodge)
+    if(!this.brain.flying||this.state===STATE.PERCH||this.state===STATE.WALK_GROUND){
+      const ps=this.type==='elephant'?12:this.type==='giraffe'?8:5;
+      const spd = Math.hypot(this.vx, this.vy);
+      const pushBase = 0.04 + spd * 0.15; // stronger push at higher speeds
+      for(const o of spatialGrid.query(this.x,this.y,ps)){
+        if(o===this||!o.alive)continue;
+        if(o.brain.flying&&o.state!==STATE.PERCH&&o.state!==STATE.WALK_GROUND)continue;
+        // Don't dodge your own hunt target
+        if(this.state===STATE.CHASE&&this.memory.huntTarget===o)continue;
+        const dx=wrapDeltaX(this.x-o.x),dy=this.y-o.y,d=Math.hypot(dx,dy);
+        if(d<ps&&d>0.1){const push=(ps-d)/ps*pushBase;this.vx+=(dx/d)*push;this.vy+=(dy/d)*push*0.3;}
+      }
+    }
     // Waterhole avoidance
     if(!this.brain.flying&&this.state!==STATE.DRINK){const wdx=wrapDeltaX(this.x-waterHole.x),wx=wdx/(waterHole.rx+3),wy=(this.y-waterHole.y)/(waterHole.ry+3),wd=wx*wx+wy*wy;if(wd<1){const d=Math.sqrt(wd)||0.1;this.vx+=(wx/d)*(1-d)*0.1*waterHole.rx;this.vy+=(wy/d)*(1-d)*0.1*waterHole.ry;}}
     // Vertical damping to prevent floating
