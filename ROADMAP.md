@@ -8,7 +8,7 @@
 - Settings panel with animal counts, world width, day speed, time control
 - Keyboard shortcuts (N=skip time, S=speed cycle, arrows/drag=pan)
 - World wrapping, spatial grid for O(n) collision avoidance
-- Deployed to VM at DEPLOY_HOST:8080
+- Deployed live at https://africa.morgaes.is
 
 ## Near-term
 - Split engine.js (~3000 lines) into ES modules with a bundler step
