@@ -542,7 +542,14 @@ class Animal {
       ctx.fillStyle=rgb([15,15,15]);ctx.fillRect(4,-3,1,1); // eye
       return;
     }
-    const hd=(this.state===STATE.GRAZE||this.state===STATE.DRINK)?3:0,l=this._legs(wp,m);ctx.fillStyle=rgb([225,225,225]);ctx.fillRect(-5,-5,10,4);ctx.fillStyle=rgb([25,25,25]);ctx.fillRect(-3,-5,1,4);ctx.fillRect(-1,-5,1,4);ctx.fillRect(1,-5,1,4);ctx.fillRect(3,-5,1,4);ctx.fillStyle=rgb([220,220,220]);ctx.fillRect(4,-7+hd,2,3);ctx.fillStyle=rgb([25,25,25]);ctx.fillRect(5,-6+hd,1,1);ctx.fillStyle=rgb([210,210,210]);ctx.fillRect(5,-8+hd,3,2);ctx.fillStyle=rgb([15,15,15]);ctx.fillRect(7,-8+hd,1,1);ctx.fillRect(6,-9+hd,1,1);ctx.fillStyle=rgb([30,30,30]);ctx.fillRect(3,-7+hd,3,1);ctx.fillStyle=rgb([35,35,35]);ctx.fillRect(-3+l.bl,-1,1,3);ctx.fillRect(-1+l.br,-1,1,3);ctx.fillRect(1+l.fl,-1,1,3);ctx.fillRect(3+l.fr,-1,1,3);ctx.fillStyle=rgb([25,25,25]);ctx.fillRect(-6,-4+(this.frame%60<30?0:-1),1,2);}
+    const hd=(this.state===STATE.GRAZE||this.state===STATE.DRINK)?3:0,l=this._legs(wp,m);ctx.fillStyle=rgb([225,225,225]);ctx.fillRect(-5,-5,10,4);ctx.fillStyle=rgb([25,25,25]);ctx.fillRect(-3,-5,1,4);ctx.fillRect(-1,-5,1,4);ctx.fillRect(1,-5,1,4);ctx.fillRect(3,-5,1,4);ctx.fillStyle=rgb([220,220,220]);ctx.fillRect(4,-7+hd,2,3);ctx.fillStyle=rgb([25,25,25]);ctx.fillRect(5,-6+hd,1,1);ctx.fillStyle=rgb([210,210,210]);ctx.fillRect(5,-8+hd,3,2);ctx.fillStyle=rgb([15,15,15]);ctx.fillRect(7,-8+hd,1,1);ctx.fillRect(6,-9+hd,1,1);ctx.fillStyle=rgb([30,30,30]);ctx.fillRect(3,-7+hd,3,1);ctx.fillStyle=rgb([35,35,35]);ctx.fillRect(-3+l.bl,-1,1,3);ctx.fillRect(-1+l.br,-1,1,3);ctx.fillRect(1+l.fl,-1,1,3);ctx.fillRect(3+l.fr,-1,1,3);// Tail swish: faster during hot midday (swatting flies)
+    const isHot = simTime > 10 && simTime < 15;
+    const swishSpeed = isHot && !m ? 15 : 30; // faster swish when idle in heat
+    const tailOff = this.frame % (swishSpeed * 2) < swishSpeed ? 0 : -1;
+    ctx.fillStyle=rgb([25,25,25]);
+    ctx.fillRect(-6, -4 + tailOff, 1, 2);
+    if (isHot && !m) ctx.fillRect(-7, -3 + tailOff, 1, 1); // wider swish in heat
+  }
   _sprGazelle(ctx,wp,m){
     if(this.state===STATE.REST&&Math.hypot(this.vx,this.vy)<0.03){
       ctx.fillStyle=rgb([185,145,85]);ctx.fillRect(-3,-2,6,2);
@@ -584,9 +591,10 @@ class Animal {
     ctx.fillStyle = rgb([100, 95, 85]);
     ctx.fillRect(6, -9, 4, 6);
     ctx.fillRect(5, -10, 4, 2);
-    // Ear (animated flap)
+    // Ear flap (faster in heat — thermoregulation)
     ctx.fillStyle = rgb([85, 80, 72]);
-    const ef = Math.sin(this.frame * 0.025) > 0.3 ? 1 : 0;
+    const earSpeed = (simTime > 10 && simTime < 15) ? 0.06 : 0.025;
+    const ef = Math.sin(this.frame * earSpeed) > 0.3 ? 1 : 0;
     ctx.fillRect(4 - ef, -10, 3 + ef, 4);
     ctx.fillStyle = rgb([115, 100, 85]);
     ctx.fillRect(5 - ef, -9, 1, 2);
