@@ -602,6 +602,40 @@ function renderBg() {
     }
     // Regular stars
     for(let i=0;i<starPoints.length;i++){const sp=starPoints[i],sx=Math.floor(sp.x),sy=Math.floor(sp.y);if(sy>=hS||sy<=0||sx<0||sx>=PW)continue;const tw=0.6+0.4*Math.sin(t*0.8+i*1.7),br=sp.hash<0.1?1:sp.hash<0.3?0.7:0.4,a=sb*br*tw;bgCtx.fillStyle=`rgba(255,255,240,${clamp(a,0,0.9)})`;bgCtx.fillRect(sx,sy,1,1);if(sp.hash<0.08){bgCtx.fillStyle=`rgba(255,255,240,${clamp(a*0.4,0,0.4)})`;bgCtx.fillRect(sx+1,sy,1,1);bgCtx.fillRect(sx,sy+1,1,1);}}
+
+    // Southern Cross constellation (Crux) - iconic from African latitudes
+    if (sb > 0.5) {
+      const cruxX = Math.floor(PW * 0.65), cruxY = Math.floor(hS * 0.35);
+      const cruxAlpha = sb * 0.85;
+      const cruxStars = [
+        [0, -8],   // Alpha (Acrux, bottom)
+        [0, 8],    // Gamma (top)
+        [-6, 0],   // Delta (left)
+        [5, 0],    // Beta (right, Mimosa)
+        [-1, 3],   // Epsilon (dimmer, off-center)
+      ];
+      // Draw connecting lines first (faint)
+      bgCtx.strokeStyle = `rgba(200,210,240,${cruxAlpha * 0.08})`;
+      bgCtx.lineWidth = 0.5;
+      bgCtx.beginPath();
+      bgCtx.moveTo(cruxX + cruxStars[0][0], cruxY + cruxStars[0][1]);
+      bgCtx.lineTo(cruxX + cruxStars[1][0], cruxY + cruxStars[1][1]);
+      bgCtx.moveTo(cruxX + cruxStars[2][0], cruxY + cruxStars[2][1]);
+      bgCtx.lineTo(cruxX + cruxStars[3][0], cruxY + cruxStars[3][1]);
+      bgCtx.stroke();
+      // Draw stars
+      for (let si = 0; si < cruxStars.length; si++) {
+        const [dx, dy] = cruxStars[si];
+        const bright = si < 4 ? 0.9 : 0.5; // epsilon is dimmer
+        bgCtx.fillStyle = `rgba(220,230,255,${cruxAlpha * bright})`;
+        bgCtx.fillRect(cruxX + dx, cruxY + dy, 1, 1);
+        if (si < 2) { // alpha and gamma get glow
+          bgCtx.fillStyle = `rgba(200,210,240,${cruxAlpha * bright * 0.3})`;
+          bgCtx.fillRect(cruxX + dx + 1, cruxY + dy, 1, 1);
+          bgCtx.fillRect(cruxX + dx, cruxY + dy + 1, 1, 1);
+        }
+      }
+    }
   if(!getSunPos(t)){const mp=(t<12)?(t+12):(t-12),ma=(mp-6)/12*Math.PI;if(ma>0&&ma<Math.PI){const mx=Math.floor(WORLD_W*0.15+(WORLD_W*0.7)*((mp-6)/12)-VP.x),my=Math.floor(HORIZON-Math.sin(ma)*55-VP.y);if(mx>-15&&mx<PW+15&&my>0&&my<hS){const R=7;for(let r=R+8;r>R;r--){bgCtx.fillStyle=`rgba(180,200,230,${0.04*(1-(r-R)/8)*sb})`;for(let dy=-r;dy<=r;dy++){const hw=Math.floor(Math.sqrt(r*r-dy*dy)),py=my+dy;if(py>=0&&py<hS)bgCtx.fillRect(mx-hw,py,hw*2,1);}}bgCtx.fillStyle=rgb([220,225,235]);for(let dy=-R;dy<=R;dy++)for(let dx=-R;dx<=R;dx++)if(dx*dx+dy*dy<=R*R&&my+dy>=0&&my+dy<hS)bgCtx.fillRect(mx+dx,my+dy,1,1);bgCtx.fillStyle=rgb([195,200,210]);bgCtx.fillRect(mx-2,my-1,2,2);bgCtx.fillRect(mx+2,my+1,1,1);bgCtx.fillRect(mx-1,my+2,2,1);}}}}
   // Hills
   for(let pass=0;pass<2;pass++){const hcBase=pass===0?[70,55,40]:[60,48,32];for(let px=0;px<PW;px++){const wx=wrapX(px+VP.x),phase=pass*2.1,hh=4+Math.sin(wx*0.015+phase)*3+Math.sin(wx*0.04+phase)*1.5+Math.sin(wx*0.007+phase)*5,hTop=Math.floor(hS-hh);for(let py=hTop;py<hS;py++){if(py>=0&&py<PH){const ft=(py-hTop)/(hS-hTop),base=lerpColor(hcBase,[85,70,38],ft);bgCtx.fillStyle=rgb([Math.round(base[0]*amb),Math.round(base[1]*amb),Math.round(base[2]*amb)]);bgCtx.fillRect(px,py,1,1);}}}}
