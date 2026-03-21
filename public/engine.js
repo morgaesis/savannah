@@ -319,7 +319,7 @@ function* behaviorLoop(self, getAnimals) {
     const nR=isNight?3:isTwilight?1.5:1,mR=isHotMidday?1.8:1,nH=isNight?2.5:1,nG=isNight?0.3:1,nW=isNight?0.4:1;
     // Heat increases thirst rate and water-seeking behavior
     const hotMul = isHotMidday ? 2.0 : 1.0;
-    const weights=[{w:self.brain.restDesire*(1+self.brain.laziness)*nR*mR,a:'rest'},{w:self.brain.grazeDesire*(hungry?2.5:0.5)*nG,a:'graze'},{w:self.brain.wanderDesire*(1+self.brain.curiosity)*nW,a:'wander'},{w:self.brain.waterDesire*(thirsty?4*hotMul:0.3*hotMul),a:'water'},{w:self.brain.herdDesire*(self.brain.herd?1.5:0)*nH,a:'herd'},{w:scared?0.8:0.05,a:'avoid'},{w:0.15,a:'idle'}];
+    const weights=[{w:self.brain.restDesire*(1+self.brain.laziness)*nR*mR,a:'rest'},{w:self.brain.grazeDesire*(hungry?2.5:0.5)*nG,a:'graze'},{w:self.brain.wanderDesire*(1+self.brain.curiosity)*nW,a:'wander'},{w:self.brain.waterDesire*(thirsty?4*hotMul:0.3*hotMul),a:'water'},{w:self.brain.herdDesire*(self.brain.herd?1.5:0)*nH,a:'herd'},{w:scared?0.8:0.05,a:'avoid'},{w:isHotMidday?0.3:0,a:'shade'},{w:0.15,a:'idle'}];
     const totalW=weights.reduce((s,o)=>s+o.w,0); let r=Math.random()*totalW,chosen='idle'; for(const{w,a}of weights){r-=w;if(r<=0){chosen=a;break;}}
     switch(chosen) {
       case 'rest': self.state=STATE.REST;self.targetVx=0;self.targetVy=0;yield randInt(300,1200)*(0.5+self.brain.laziness);break;
@@ -382,6 +382,26 @@ function* behaviorLoop(self, getAnimals) {
       case 'water': self.state=STATE.APPROACH_WATER;yield* goToWater(self);break;
       case 'herd': yield* herdDrift(self,getAnimals);break;
       case 'avoid': { const lt=self.memory.threats[self.memory.threats.length-1]; if(lt){self.state=STATE.WANDER;const dir=dirFrom(lt,self);self.targetVx=dir.dx*self.brain.speed*0.3;self.targetVy=dir.dy*self.brain.speed*0.1;yield randInt(100,250);}else yield randInt(60,150);break; }
+      case 'shade': {
+        // Seek shade under nearest tree during hot midday
+        let nearest = null, nd = Infinity;
+        for (const t of trees) {
+          const d = dist(self, t);
+          if (d < nd) { nearest = t; nd = d; }
+        }
+        if (nearest && nd > 10) {
+          self.state = STATE.WANDER;
+          const dir = dirFrom(self, nearest);
+          self.targetVx = dir.dx * self.brain.speed * 0.5;
+          self.targetVy = dir.dy * self.brain.speed * 0.3;
+          yield Math.min(Math.floor(nd / self.brain.speed), 400);
+        }
+        // Rest under the tree
+        self.state = STATE.REST;
+        self.targetVx = 0; self.targetVy = 0;
+        yield randInt(300, 800);
+        break;
+      }
       default: {
         // Idle: standing still but looking around occasionally
         self.state = STATE.IDLE;
