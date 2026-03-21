@@ -1321,6 +1321,20 @@ function drawWaterHole(tick, al) {
         ctx.fillRect(Math.floor(sx+dx), Math.floor(sy+dy), 1, 1);
     }
 
+  // Exposed dry lakebed when water level is low
+  if (wlvl < 0.9) {
+    const dryCr = Math.round(55 * a), dryCg = Math.round(45 * a), dryCb = Math.round(25 * a);
+    ctx.fillStyle = `rgba(${dryCr},${dryCg},${dryCb},0.5)`;
+    for (let dy = -waterHole.ry; dy <= waterHole.ry; dy++)
+      for (let dx = -waterHole.rx; dx <= waterHole.rx; dx++) {
+        const nx = dx / waterHole.rx, ny = dy / waterHole.ry;
+        const nxw = dx / wrx, nyw = dy / wry;
+        // Between full bank and current water level
+        if (nx * nx + ny * ny <= 1 && nxw * nxw + nyw * nyw > 1) {
+          ctx.fillRect(Math.floor(sx + dx), Math.floor(sy + dy), 1, 1);
+        }
+      }
+  }
   // Sky/light reflection color
   const sky = getSkyColors(simTime);
   // Water level affects visible water area (banks stay full size)
