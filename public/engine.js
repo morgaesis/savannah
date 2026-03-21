@@ -2054,13 +2054,20 @@ function initAudio() {
   }
 
   // Update wind volume based on time of day
+  // Wind gusting: varies volume and filter over time for natural feel
+  let windPhase = Math.random() * 100;
   setInterval(() => {
     if (!audioCtx || audioCtx.state === 'closed') return;
     const amb = getAmbient(simTime);
-    // Wind louder during day, quieter at night
-    windGain.gain.linearRampToValueAtTime(0.03 + amb * 0.06, audioCtx.currentTime + 1);
-    windFilter.frequency.linearRampToValueAtTime(250 + amb * 300, audioCtx.currentTime + 1);
-  }, 2000);
+    windPhase += 0.15;
+    // Gust pattern: slow sine + faster variation for organic feel
+    const gust = 0.7 + Math.sin(windPhase * 0.3) * 0.2 + Math.sin(windPhase * 0.8) * 0.1;
+    const baseVol = 0.03 + amb * 0.06;
+    windGain.gain.linearRampToValueAtTime(baseVol * gust, audioCtx.currentTime + 1.5);
+    // Filter shifts with gusts (higher freq = sharper wind)
+    const baseFreq = 250 + amb * 300;
+    windFilter.frequency.linearRampToValueAtTime(baseFreq * (0.8 + gust * 0.4), audioCtx.currentTime + 1.5);
+  }, 1500);
 
   // Cicada buzz: continuous droning during hot midday (10:00-15:00)
   let cicadaOsc = null, cicadaGain = null;
