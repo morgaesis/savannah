@@ -57,6 +57,9 @@ const CFG = {
 let WORLD_W = CFG.worldW, WORLD_H = CFG.worldH;
 let HORIZON = Math.floor(WORLD_H * 0.45);
 // VP.y is dynamic: positions horizon at ~52% from top regardless of viewport height
+// Query params (parsed early so VP can use them)
+const _urlParams = new URLSearchParams(window.location.search);
+const _qVP = _urlParams.get('vp');
 const VP = { x: _qVP ? Number(_qVP) : 180, get y() { return Math.floor(HORIZON - PH * 0.52); } };
 
 canvas.addEventListener("click", (e) => {
@@ -94,12 +97,10 @@ function pcgHash(x, y, seed) { let h = (x*374761393 + y*668265263 + seed*1274126
 function pcgHashN(x, y, seed, n) { const out = []; for (let i = 0; i < n; i++) out.push(pcgHash(x, y, seed + i*7919)); return out; }
 function jitteredGridPoints(aX, aY, aW, aH, cell, seed, density) { const pts = [], cols = Math.ceil(aW/cell), rows = Math.ceil(aH/cell); for (let cy = 0; cy < rows; cy++) for (let cx = 0; cx < cols; cx++) { const [r1,r2,r3] = pcgHashN(cx,cy,seed,3); if (r3 > (density||1)) continue; const px = aX+cx*cell+r1*cell*0.9, py = aY+cy*cell+r2*cell*0.9; if (px >= aX && px < aX+aW && py >= aY && py < aY+aH) pts.push({x:px,y:py,hash:r1}); } return pts; }
 
-// ── Query Params: ?t=17.5 (time in hours) &seed=42 (world seed) &speed=300 (day length sec) ──
-const _urlParams = new URLSearchParams(window.location.search);
+// ── Query Params ──
 const _qTime = _urlParams.get('t');
 const _qSeed = _urlParams.get('seed');
 const _qSpeed = _urlParams.get('speed');
-const _qVP = _urlParams.get('vp'); // viewport x position
 
 // Master seed: affects world generation and animal spawning
 const WORLD_SEED = _qSeed ? Number(_qSeed) : Math.floor(Math.random() * 100000);
