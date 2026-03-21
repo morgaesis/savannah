@@ -229,6 +229,26 @@ document.addEventListener("keydown", e => {
     dayLengthSel.value = String(dayLengthSec);
     localStorage.setItem('ss_dayLength', String(dayLengthSec));
   }
+  // Help overlay
+  if (e.key === '?' || e.key === 'h') {
+    let hel = document.getElementById('help-overlay');
+    if (hel) { hel.remove(); return; }
+    hel = document.createElement('div');
+    hel.id = 'help-overlay';
+    hel.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;display:flex;align-items:center;justify-content:center;cursor:pointer;';
+    hel.innerHTML = `<div style="background:#1a1a1a;border:1px solid #444;border-radius:8px;padding:16px 24px;color:#bbb;font:12px/2 monospace;max-width:320px;">
+      <div style="color:#e8dcc0;font-size:14px;font-weight:bold;margin-bottom:8px;">Controls</div>
+      <b>Click</b> fullscreen &nbsp; <b>Drag</b> pan<br>
+      <b>N</b> next time period<br>
+      <b>S</b> cycle speed (1x/60x/300x)<br>
+      <b>←→</b> pan viewport<br>
+      <b>?</b> this help<br>
+      <div style="border-top:1px solid #333;margin:6px 0;"></div>
+      <span style="color:#665;font-size:10px;">click anywhere to close</span>
+    </div>`;
+    hel.addEventListener('click', () => hel.remove());
+    document.body.appendChild(hel);
+  }
 });
 document.addEventListener("keyup", e => { if (e.key==="ArrowLeft"||e.key==="a") inputState.left=false; if (e.key==="ArrowRight"||e.key==="d") inputState.right=false; });
 canvas.addEventListener("mousedown", e => { if (e.button!==0) return; inputState.dragging=true; inputState.dragStartX=e.clientX; inputState.dragVpStart=VP.x; canvas.style.cursor="grabbing"; });
