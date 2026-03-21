@@ -409,6 +409,21 @@ function* behaviorLoop(self, getAnimals) {
     switch(chosen) {
       case 'rest': self.state=STATE.REST;self.targetVx=0;self.targetVy=0;yield randInt(300,1200)*(0.5+self.brain.laziness);break;
       case 'graze': {
+        // Sentinel behavior: boldest zebra in local group stays alert while others graze
+        if (self.type === 'zebra' && !isNight) {
+          const nearby = getAnimals().filter(a => a !== self && a.alive && a.type === 'zebra' && dist(self, a) < 50);
+          const isBoldest = nearby.length > 0 && nearby.every(a => a.brain.boldness <= self.brain.boldness);
+          if (isBoldest) {
+            // Sentinel: stand alert, scan for threats
+            self.state = STATE.IDLE;
+            self.targetVx = 0; self.targetVy = 0;
+            for (let i = 0, dur = randInt(150, 400); i < dur && self.alive; i++) {
+              if (i % 40 === 0) self.facing *= -1; // look around frequently
+              yield 1;
+            }
+            break;
+          }
+        }
         self.state = STATE.GRAZE;
         for (let i = 0, dur = randInt(200, 800); i < dur && self.alive; i++) {
           self.targetVx *= 0.98; self.targetVy *= 0.98;
