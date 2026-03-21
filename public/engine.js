@@ -657,7 +657,36 @@ class Animal {
       return;
     }
     const hd=(this.state===STATE.GRAZE||this.state===STATE.DRINK)?2:0,l=this._legs(wp,m);ctx.fillStyle=rgb([70,65,55]);ctx.fillRect(-5,-5,10,4);ctx.fillStyle=rgb([55,50,42]);ctx.fillRect(3,-4,3,3);ctx.fillStyle=rgb([65,60,50]);ctx.fillRect(5,-7+hd,3,3);ctx.fillStyle=rgb([40,35,25]);ctx.fillRect(6,-9+hd,1,2);ctx.fillRect(5,-9+hd,1,1);ctx.fillRect(7,-9+hd,1,1);ctx.fillStyle=rgb([20,15,10]);ctx.fillRect(7,-6+hd,1,1);ctx.fillStyle=rgb([50,45,35]);ctx.fillRect(3,-6+hd,3,1);ctx.fillStyle=rgb([50,45,38]);ctx.fillRect(-3+l.bl,-1,1,3);ctx.fillRect(-1+l.br,-1,1,3);ctx.fillRect(1+l.fl,-1,1,3);ctx.fillRect(3+l.fr,-1,1,3);ctx.fillStyle=rgb([35,30,25]);ctx.fillRect(-6,-4,1,2);}
-  _sprWarthog(ctx,wp,m){const hd=this.state===STATE.GRAZE?1:0,tailUp=this.state===STATE.FLEE,l=this._legs(wp,m);ctx.fillStyle=rgb([100,90,75]);ctx.fillRect(-3,-3,7,3);ctx.fillStyle=rgb([95,85,70]);ctx.fillRect(3,-4+hd,3,3);ctx.fillRect(5,-3+hd,2,2);ctx.fillStyle=rgb([230,225,210]);ctx.fillRect(6,-4+hd,1,1);ctx.fillStyle=rgb([120,100,75]);ctx.fillRect(4,-4+hd,1,1);ctx.fillStyle=rgb([20,15,10]);ctx.fillRect(4,-3+hd,1,1);ctx.fillStyle=rgb([70,60,50]);ctx.fillRect(-2+l.bl,0,1,2);ctx.fillRect(0+l.br,0,1,2);ctx.fillRect(2+l.fl,0,1,2);ctx.fillStyle=rgb([60,50,40]);if(tailUp){ctx.fillRect(-4,-5,1,3);ctx.fillRect(-4,-6,1,1);}else ctx.fillRect(-4,-2,1,2);}
+  _sprWarthog(ctx,wp,m){
+    const grazing=this.state===STATE.GRAZE;
+    const tailUp=this.state===STATE.FLEE;
+    const l=this._legs(wp,m);
+    // Body (tilts forward when grazing — kneeling on front legs)
+    const tilt = grazing ? 1 : 0;
+    ctx.fillStyle=rgb([100,90,75]);ctx.fillRect(-3,-3+tilt,7,3);
+    // Head (lower when grazing)
+    ctx.fillStyle=rgb([95,85,70]);ctx.fillRect(3,-4+tilt*2,3,3);ctx.fillRect(5,-3+tilt*2,2,2);
+    // Tusks
+    ctx.fillStyle=rgb([230,225,210]);ctx.fillRect(6,-4+tilt*2,1,1);
+    // Warts
+    ctx.fillStyle=rgb([120,100,75]);ctx.fillRect(4,-4+tilt*2,1,1);
+    // Eye
+    ctx.fillStyle=rgb([20,15,10]);ctx.fillRect(4,-3+tilt*2,1,1);
+    // Legs (front legs bent when grazing)
+    ctx.fillStyle=rgb([70,60,50]);
+    ctx.fillRect(-2+l.bl,0,1,2);
+    ctx.fillRect(0+l.br,0,1,2);
+    if (grazing) {
+      // Front legs folded (kneeling)
+      ctx.fillRect(2,0+tilt,1,1);
+    } else {
+      ctx.fillRect(2+l.fl,0,1,2);
+    }
+    // Tail
+    ctx.fillStyle=rgb([60,50,40]);
+    if(tailUp){ctx.fillRect(-4,-5,1,3);ctx.fillRect(-4,-6,1,1);}
+    else ctx.fillRect(-4,-2+tilt,1,2);
+  }
   _sprLion(ctx,wp,m){const eating=this.state===STATE.EAT,crouch=this.state===STATE.STALK?2:0,resting=this.state===STATE.REST&&Math.hypot(this.vx,this.vy)<0.03,l=this._legs(wp,m||this.state===STATE.CHASE);
     if(resting){ctx.fillStyle=rgb([190,150,65]);ctx.fillRect(-5,-2,10,2);ctx.fillStyle=rgb([165,120,45]);ctx.fillRect(3,-4,5,3);ctx.fillStyle=rgb([190,150,65]);ctx.fillRect(6,-3,2,2);ctx.fillStyle=rgb([35,25,10]);ctx.fillRect(7,-3,1,1);ctx.fillStyle=rgb([120,85,35]);ctx.fillRect(-6,-1,1,1);return;}
     if(eating){ctx.fillStyle=rgb([195,155,68]);ctx.fillRect(-5,-4,10,4);ctx.fillStyle=rgb([160,115,42]);ctx.fillRect(3,-6,5,4);ctx.fillRect(2,-7,6,2);ctx.fillStyle=rgb([180,140,60]);ctx.fillRect(5,-2,3,2);ctx.fillStyle=rgb([55,35,15]);ctx.fillRect(7,-1,1,1);ctx.fillStyle=rgb([155,115,50]);ctx.fillRect(-3,0,1,3);ctx.fillRect(-1,0,1,3);ctx.fillRect(2,0,1,3);ctx.fillRect(4,0,1,3);ctx.fillStyle=rgb([170,130,55]);ctx.fillRect(-6,-3+Math.round(Math.sin(this.frame*0.06)),2,1);return;}
