@@ -23,11 +23,30 @@ function resizeCanvas() {
     vigCanvas.width = PW; vigCanvas.height = PH;
     renderVignette();
     bgDirty = true;
-    // Re-generate star positions for new sky area
+    // Re-generate position-dependent elements for new dimensions
     starPoints = jitteredGridPoints(0, 0, PW, Math.max(1, HORIZON - VP.y), 6, 271, 0.55);
+    // Regenerate foreground grass and cricket positions
+    if (typeof fgGrass !== 'undefined') {
+      fgGrass.length = 0;
+      for (let i = 0; i < 12; i++) fgGrass.push({
+        x: (i * 37 + 11) % PW,
+        y: PH - 5 - (pcgHash(i, 0, 8888) * 30),
+        height: 4 + Math.floor(pcgHash(i, 1, 8888) * 4),
+        phase: pcgHash(i, 2, 8888) * Math.PI * 2,
+        speed: 0.02 + pcgHash(i, 3, 8888) * 0.015,
+        color: Math.floor(pcgHash(i, 4, 8888) * 3),
+      });
+    }
+    if (typeof crickets !== 'undefined') {
+      for (const c of crickets) {
+        c.x = rand(30, PW - 30);
+        c.y = rand(HORIZON - VP.y + 15, PH - 25);
+      }
+    }
   }
 }
 window.addEventListener('resize', resizeCanvas);
+document.addEventListener('fullscreenchange', () => setTimeout(resizeCanvas, 100));
 
 // ── Configuration (mutable at runtime via config menu) ──
 const CFG = {
