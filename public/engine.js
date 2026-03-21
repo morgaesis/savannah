@@ -628,7 +628,32 @@ class Animal {
     ctx.fillRect(-7, -7, 1, 2);
     ctx.fillRect(-8, -6, 1, 2);
   }
-  _sprGiraffe(ctx,wp,m){const hd=this.state===STATE.DRINK?8:this.state===STATE.GRAZE?4:0,l=this._legs(wp*0.8,m);ctx.fillStyle=rgb([195,165,100]);ctx.fillRect(-3,-5,7,5);ctx.fillStyle=rgb([140,105,55]);ctx.fillRect(-2,-4,2,2);ctx.fillRect(1,-3,2,2);ctx.fillRect(0,-5,1,1);ctx.fillStyle=rgb([195,165,100]);ctx.fillRect(3,-14+hd,2,10);ctx.fillStyle=rgb([140,105,55]);ctx.fillRect(3,-12+hd,1,2);ctx.fillRect(4,-9+hd,1,2);ctx.fillRect(3,-7+hd,1,1);ctx.fillStyle=rgb([195,165,100]);ctx.fillRect(4,-15+hd,2,2);ctx.fillStyle=rgb([140,120,80]);ctx.fillRect(4,-17+hd,1,2);ctx.fillRect(5,-16+hd,1,1);ctx.fillStyle=rgb([20,15,10]);ctx.fillRect(5,-15+hd,1,1);ctx.fillStyle=rgb([170,140,85]);ctx.fillRect(-2+l.bl,0,1,5);ctx.fillRect(0+l.br,0,1,5);ctx.fillRect(2+l.fl,0,1,5);ctx.fillRect(3+l.fr,0,1,5);ctx.fillStyle=rgb([100,80,50]);ctx.fillRect(-4,-4,1,2);ctx.fillRect(-5,-3,1,1);}
+  _sprGiraffe(ctx,wp,m){
+    const hd=this.state===STATE.DRINK?8:this.state===STATE.GRAZE?4:0;
+    const l=this._legs(wp*0.8,m);
+    // Neck sway when walking (subtle 1px oscillation at the top)
+    const neckSway = m ? Math.round(Math.sin(wp * 0.8) * 0.8) : 0;
+    // Body
+    ctx.fillStyle=rgb([195,165,100]);ctx.fillRect(-3,-5,7,5);
+    // Spots
+    ctx.fillStyle=rgb([140,105,55]);ctx.fillRect(-2,-4,2,2);ctx.fillRect(1,-3,2,2);ctx.fillRect(0,-5,1,1);
+    // Neck (with sway at top)
+    ctx.fillStyle=rgb([195,165,100]);
+    for (let ny = 0; ny < 10; ny++) {
+      const sw = Math.round(neckSway * ny / 10); // sway increases toward top
+      ctx.fillRect(3 + sw, -14 + hd + ny, 2, 1);
+    }
+    // Neck spots
+    ctx.fillStyle=rgb([140,105,55]);ctx.fillRect(3+neckSway,-12+hd,1,2);ctx.fillRect(4+neckSway,-9+hd,1,2);ctx.fillRect(3,-7+hd,1,1);
+    // Head (follows neck sway)
+    ctx.fillStyle=rgb([195,165,100]);ctx.fillRect(4+neckSway,-15+hd,2,2);
+    ctx.fillStyle=rgb([140,120,80]);ctx.fillRect(4+neckSway,-17+hd,1,2);ctx.fillRect(5+neckSway,-16+hd,1,1);
+    ctx.fillStyle=rgb([20,15,10]);ctx.fillRect(5+neckSway,-15+hd,1,1);
+    // Legs
+    ctx.fillStyle=rgb([170,140,85]);ctx.fillRect(-2+l.bl,0,1,5);ctx.fillRect(0+l.br,0,1,5);ctx.fillRect(2+l.fl,0,1,5);ctx.fillRect(3+l.fr,0,1,5);
+    // Tail
+    ctx.fillStyle=rgb([100,80,50]);ctx.fillRect(-4,-4,1,2);ctx.fillRect(-5,-3,1,1);
+  }
   _sprBird(ctx){const onGround=this.state===STATE.PERCH||this.state===STATE.WALK_GROUND;if(onGround){ctx.fillStyle=rgb([55,48,42]);ctx.fillRect(0,-3,2,2);ctx.fillRect(-1,-2,1,1);ctx.fillStyle=rgb([90,65,30]);ctx.fillRect(3,-3,1,1);ctx.fillStyle=rgb([15,12,10]);ctx.fillRect(2,-3,1,1);ctx.fillStyle=rgb([65,50,35]);ctx.fillRect(0,-1,1,2);ctx.fillRect(1,-1,1,2);}else{const fs=0.10+(this.seed%100)/100*0.08,fp=this.seed*6.28,wu=Math.round(Math.sin(this.frame*fs+fp)*2);ctx.fillStyle=rgb([42,38,34]);ctx.fillRect(0,0,1,1);ctx.fillRect(-1,-1,1,1);ctx.fillRect(-2,-1-wu,1,1);ctx.fillRect(-3,-1-wu-(wu>0?1:0),1,1);ctx.fillRect(1,-1,1,1);ctx.fillRect(2,-1-wu,1,1);ctx.fillRect(3,-1-wu-(wu>0?1:0),1,1);}}
 }
 

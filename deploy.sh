@@ -15,7 +15,7 @@ SSH="sshpass -p $DEPLOY_PASS ssh -o StrictHostKeyChecking=no -p $DEPLOY_PORT $DE
 SCP="sshpass -p $DEPLOY_PASS scp -o StrictHostKeyChecking=no -P $DEPLOY_PORT"
 
 echo "Syncing files..."
-$SCP public/engine.js public/index.html public/favicon.svg $DEPLOY_USER@$DEPLOY_HOST:~/public/
+$SCP public/engine.js public/index.html public/favicon.svg public/og.png $DEPLOY_USER@$DEPLOY_HOST:~/public/
 $SCP src/server.ts $DEPLOY_USER@$DEPLOY_HOST:~/src/
 
 echo "Ensuring port 4680 (traefik proxies 80/443 -> 4680)..."
