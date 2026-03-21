@@ -2154,6 +2154,18 @@ function render(){
   ctx.drawImage(vigCanvas, 0, 0);
   // Color grade
   const t=simTime;if(t>17&&t<19.5){ctx.fillStyle=`rgba(200,120,40,${clamp((1-Math.abs(t-18.25)/1.25)*0.06,0,0.06)})`;ctx.fillRect(0,0,PW,PH);}else if(t>5.5&&t<7.5){ctx.fillStyle=`rgba(200,100,80,${clamp((1-Math.abs(t-6.5)/1)*0.04,0,0.04)})`;ctx.fillRect(0,0,PW,PH);}else if(t<5||t>21){ctx.fillStyle='rgba(20,30,60,0.08)';ctx.fillRect(0,0,PW,PH);}
+  // Subtle noise grain at night (sparse random pixels for film-like texture)
+  if (!REDUCED_MOTION && getAmbient(simTime) < 0.3) {
+    const grainAlpha = (0.3 - getAmbient(simTime)) / 0.3 * 0.06;
+    const count = Math.floor(PW * PH * 0.008); // ~0.8% of pixels
+    for (let i = 0; i < count; i++) {
+      const gx = Math.floor(Math.random() * PW);
+      const gy = Math.floor(Math.random() * PH);
+      const bright = Math.random() > 0.5;
+      ctx.fillStyle = bright ? `rgba(255,255,255,${grainAlpha})` : `rgba(0,0,0,${grainAlpha})`;
+      ctx.fillRect(gx, gy, 1, 1);
+    }
+  }
   updateNarration();drawNarration();
   frameCount++;if(now-lastFpsTime>=1000){fpsEl.textContent=frameCount;frameCount=0;lastFpsTime=now;
     const popEl=document.getElementById('pop');
