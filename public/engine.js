@@ -202,12 +202,79 @@ function* behaviorLoop(self, getAnimals) {
     const totalW=weights.reduce((s,o)=>s+o.w,0); let r=Math.random()*totalW,chosen='idle'; for(const{w,a}of weights){r-=w;if(r<=0){chosen=a;break;}}
     switch(chosen) {
       case 'rest': self.state=STATE.REST;self.targetVx=0;self.targetVy=0;yield randInt(300,1200)*(0.5+self.brain.laziness);break;
-      case 'graze': self.state=STATE.GRAZE;for(let i=0,dur=randInt(200,800);i<dur&&self.alive;i++){self.targetVx*=0.98;self.targetVy*=0.98;self.memory.hunger=Math.max(0,self.memory.hunger-0.04);if(i%120===0){self.targetVx=rand(-0.012,0.012);self.targetVy=rand(-0.006,0.006);}if(self.memory.hunger<=3)break;yield 1;}break;
-      case 'wander': { self.state=STATE.WANDER;const a=pcgHash(self._tick>>3,Math.floor(self.seed*100),44)*Math.PI*2;self.targetVx=Math.cos(a)*self.brain.speed*0.4;self.targetVy=Math.sin(a)*self.brain.speed*0.12;for(let i=0,dur=randInt(150,500);i<dur&&self.alive;i++){const hd=dist(self,{x:self.homeX,y:self.homeY});if(hd>60+self.brain.curiosity*60){const dir=dirFrom(self,{x:self.homeX,y:self.homeY});self.targetVx+=dir.dx*0.006;self.targetVy+=dir.dy*0.002;}yield 1;}break; }
+      case 'graze': {
+        self.state = STATE.GRAZE;
+        for (let i = 0, dur = randInt(200, 800); i < dur && self.alive; i++) {
+          self.targetVx *= 0.98; self.targetVy *= 0.98;
+          self.memory.hunger = Math.max(0, self.memory.hunger - 0.04);
+          // Shift position slightly while grazing
+          if (i % 120 === 0) {
+            self.targetVx = rand(-0.012, 0.012);
+            self.targetVy = rand(-0.006, 0.006);
+          }
+          // Occasionally lift head (brief pause from eating)
+          if (pcgHash(i, Math.floor(self.seed * 55), 9999) < 0.006) {
+            self.state = STATE.IDLE; // head up
+            self.targetVx = 0; self.targetVy = 0;
+            if (pcgHash(i, Math.floor(self.seed * 44), 1111) < 0.5) self.facing *= -1;
+            yield randInt(15, 45);
+            self.state = STATE.GRAZE; // head back down
+          }
+          if (self.memory.hunger <= 3) break;
+          yield 1;
+        }
+        break;
+      }
+      case 'wander': {
+        self.state = STATE.WANDER;
+        const a = pcgHash(self._tick >> 3, Math.floor(self.seed * 100), 44) * Math.PI * 2;
+        self.targetVx = Math.cos(a) * self.brain.speed * 0.4;
+        self.targetVy = Math.sin(a) * self.brain.speed * 0.12;
+        for (let i = 0, dur = randInt(150, 500); i < dur && self.alive; i++) {
+          // Home pull
+          const hd = dist(self, { x: self.homeX, y: self.homeY });
+          if (hd > 60 + self.brain.curiosity * 60) {
+            const dir = dirFrom(self, { x: self.homeX, y: self.homeY });
+            self.targetVx += dir.dx * 0.006;
+            self.targetVy += dir.dy * 0.002;
+          }
+          // Micro-behaviors: random pauses, look-arounds, direction shifts
+          const microRoll = pcgHash(i, Math.floor(self.seed * 77), 5555);
+          if (microRoll < 0.005) {
+            // Brief pause: stop and look around
+            const savedVx = self.targetVx, savedVy = self.targetVy;
+            self.targetVx = 0; self.targetVy = 0;
+            self.facing *= -1; // look the other way
+            yield randInt(20, 60);
+            self.facing *= -1; // look back
+            self.targetVx = savedVx; self.targetVy = savedVy;
+          } else if (microRoll < 0.012) {
+            // Slight direction change mid-walk
+            const shift = (pcgHash(i, Math.floor(self.seed * 88), 6666) - 0.5) * 0.8;
+            self.targetVx += shift * self.brain.speed;
+            self.targetVy += (pcgHash(i, Math.floor(self.seed * 99), 7777) - 0.5) * 0.2 * self.brain.speed;
+          }
+          yield 1;
+        }
+        break;
+      }
       case 'water': self.state=STATE.APPROACH_WATER;yield* goToWater(self);break;
       case 'herd': yield* herdDrift(self,getAnimals);break;
       case 'avoid': { const lt=self.memory.threats[self.memory.threats.length-1]; if(lt){self.state=STATE.WANDER;const dir=dirFrom(lt,self);self.targetVx=dir.dx*self.brain.speed*0.3;self.targetVy=dir.dy*self.brain.speed*0.1;yield randInt(100,250);}else yield randInt(60,150);break; }
-      default: self.state=STATE.IDLE;self.targetVx=0;self.targetVy=0;yield randInt(150,600)*(0.5+self.brain.laziness);
+      default: {
+        // Idle: standing still but looking around occasionally
+        self.state = STATE.IDLE;
+        self.targetVx = 0; self.targetVy = 0;
+        const idleDur = randInt(150, 600) * (0.5 + self.brain.laziness);
+        for (let i = 0; i < idleDur && self.alive; i++) {
+          // Occasionally look around (flip facing)
+          if (pcgHash(i, Math.floor(self.seed * 66), 8888) < 0.008) {
+            self.facing *= -1;
+          }
+          yield 1;
+        }
+        break;
+      }
     }
   }
 }
