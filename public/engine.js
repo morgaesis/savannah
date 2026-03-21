@@ -593,6 +593,21 @@ function* birdBehavior(self, getAnimals) {
     }
     return;
   }
+  // Birds attracted to carcasses (land near dead animals)
+  const carcass = getAnimals().find(a => !a.alive && a.state === STATE.DEAD && dist(self, a) < 120);
+  if (carcass && Math.random() < 0.3) {
+    self.state = STATE.FLOCK;
+    const landX = carcass.x + rand(-8, 8), landY = carcass.y + rand(-3, 3);
+    for (let i = 0; i < 90 && self.y < landY - 2; i++) {
+      const dir = dirFrom(self, { x: landX, y: landY });
+      self.targetVx = dir.dx * self.brain.speed * 0.35;
+      self.targetVy = dir.dy * self.brain.speed * 0.3;
+      yield 1;
+    }
+    self.state = STATE.PERCH; self.targetVx = 0; self.targetVy = 0;
+    yield randInt(200, 600); // wait near carcass
+    return;
+  }
   const onGround=self.y>=HORIZON,choice=Math.random();
   if(choice<0.35){if(onGround){self.state=STATE.FLOCK;birdScatterEffect(self.x,self.y);self.targetVx=rand(-0.1,0.1);self.targetVy=-self.brain.speed*0.5;for(let i=0;i<60&&self.y>HORIZON-15;i++)yield 1;}self.state=STATE.FLOCK;self._flockPhase=rand(0,Math.PI*2);for(let i=0,dur=randInt(400,900);i<dur;i++){const t=(self._tick+i)*0.01+self._flockPhase;let fx=Math.cos(t)*self.brain.speed*0.35,fy=Math.sin(t*0.6)*self.brain.speed*0.12;const near=getAnimals().filter(a=>a!==self&&a.type==='bird'&&a.state===STATE.FLOCK&&dist(self,a)<50);if(near.length){let cx=0,cy=0;for(const a of near){cx+=wrapDeltaX(a.x-self.x);cy+=a.y;}fx+=wrapDeltaX(self.x+cx/near.length-self.x)*0.001;fy+=(cy/near.length-self.y)*0.001;}self.targetVx=fx;self.targetVy=fy;yield 1;}}
   else if(choice<0.6){if(!onGround){self.state=STATE.FLOCK;const landY=HORIZON+rand(5,60);for(let i=0;i<90&&self.y<landY-2;i++){const dx=wrapDeltaX(self.x+rand(-20,20)-self.x),dy=landY-self.y,d=Math.hypot(dx,dy)||1;self.targetVx=(dx/d)*self.brain.speed*0.3;self.targetVy=(dy/d)*self.brain.speed*0.25;yield 1;}}self.state=STATE.PERCH;self.targetVx=0;self.targetVy=0;yield randInt(300,800);}
