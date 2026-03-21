@@ -563,6 +563,14 @@ function* herdDrift(self, getAnimals) { if(!self.brain.herd){yield 60;return;} c
 
 function* lionHunt(self, getAnimals) {
   self.state=STATE.HUNT; let target=null,nd=Infinity; for(const o of getAnimals()){if(o===self||!o.alive||!o.brain.prey)continue;const d=dist(self,o);if(d<self.brain.huntRange&&d<nd){target=o;nd=d;}} if(!target){self.state=STATE.REST;yield randInt(600,1500);return;}
+  // Coordinate: alert nearby pride mates to join the hunt from different angles
+  for (const o of getAnimals()) {
+    if (o === self || !o.alive || o.type !== 'lion') continue;
+    if (dist(self, o) < 80 && o.state === STATE.REST || o.state === STATE.IDLE) {
+      o.memory.huntTarget = target;
+      o.memory.hunger = Math.max(o.memory.hunger, 50); // motivate to hunt
+    }
+  }
   self.state=STATE.STALK; for(let i=0;i<800&&self.alive;i++){if(!target.alive){self.state=STATE.REST;yield randInt(300,600);return;}if(target.state===STATE.FLEE){if(dist(self,target)<45)break;else{self.state=STATE.REST;yield randInt(600,1500);return;}}const dir=dirFrom(self,target);if(dir.d<20)break;const pause=pcgHash(i>>2,Math.floor(self.seed*100),66)>0.55;self.targetVx=pause?0:dir.dx*self.brain.speed*0.25;self.targetVy=pause?0:dir.dy*self.brain.speed*0.075;yield 1;}
   self.state=STATE.CHASE; for(let i=0;i<350&&self.alive;i++){if(!target.alive)break;const dir=dirFrom(self,target);self.targetVx=dir.dx*self.getSprintSpeed();self.targetVy=dir.dy*self.getSprintSpeed()*0.25;if(dir.d<6){target.alive=false;target.state=STATE.DEAD;self.state=STATE.EAT;self.targetVx=0;self.targetVy=0;showNarration('The lion feeds');spawnVultures(target.x, target.y);for(let j=0,dur=randInt(600,1800);j<dur&&self.alive;j++){self.memory.hunger=Math.max(0,self.memory.hunger-0.06);self.targetVx=0;self.targetVy=0;if(dist(self,target)>8){const d2=dirFrom(self,target);self.targetVx=d2.dx*0.02;self.targetVy=d2.dy*0.01;}yield 1;}self.state=STATE.REST;yield randInt(800,2500);return;}if(dir.d>100)break;yield 1;}
   self.state=STATE.REST;yield randInt(800,2500);
