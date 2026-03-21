@@ -81,7 +81,13 @@ function rand(a, b) { return a + Math.random() * (b - a); }
 function randInt(a, b) { return Math.floor(rand(a, b)); }
 function wrapX(x) { return ((x % WORLD_W) + WORLD_W) % WORLD_W; }
 function wrapDeltaX(dx) { if (dx > WORLD_W/2) return dx - WORLD_W; if (dx < -WORLD_W/2) return dx + WORLD_W; return dx; }
-function worldToScreenX(wx) { return Math.floor(wrapDeltaX(wx - VP.x)); }
+function worldToScreenX(wx) {
+  // Map world x to screen x. VP.x is left edge of viewport.
+  // Normalize delta to [0, WORLD_W), so items wrap from right edge to left.
+  const dx = ((wx - VP.x) % WORLD_W + WORLD_W) % WORLD_W;
+  // Items more than WORLD_W away wrap around (for objects just off left edge)
+  return Math.floor(dx > WORLD_W - 30 ? dx - WORLD_W : dx);
+}
 function dist(a, b) { return Math.hypot(wrapDeltaX(a.x - b.x), a.y - b.y); }
 function dirFrom(from, to) { const dx = wrapDeltaX(to.x - from.x), dy = to.y - from.y, d = Math.hypot(dx, dy) || 1; return { dx: dx/d, dy: dy/d, d }; }
 function pcgHash(x, y, seed) { let h = (x*374761393 + y*668265263 + seed*1274126177)|0; h = Math.imul(h^(h>>>16), 0x85ebca6b); h = Math.imul(h^(h>>>13), 0xc2b2ae35); return ((h^(h>>>16))>>>0)/4294967296; }
@@ -401,7 +407,8 @@ class Animal {
     if(this.brain.flying&&this.state!==STATE.PERCH&&this.state!==STATE.WALK_GROUND){this.x=wrapX(this.x);if(this.y<15){this.vy+=0.02;this.targetVy=Math.max(this.targetVy,0);}if(this.y>HORIZON-3){this.vy-=0.02;this.targetVy=Math.min(this.targetVy,0);}this.y=clamp(this.y,10,HORIZON);}else{this.x=wrapX(this.x);if(this.y<HORIZON+3){this.vy+=0.01;this.targetVy+=0.003;}else if(this.y>WORLD_H-15){this.vy-=0.01;this.targetVy-=0.003;}this.y=clamp(this.y,HORIZON+1,WORLD_H-5);}
     if(Math.abs(this.vx)>0.02)this.facing=this.vx>0?1:-1;
     // Keep homeX in sync with wrapped position (prevents seam oscillation)
-    if (Math.abs(wrapDeltaX(this.x - this.homeX)) > WORLD_W * 0.3) {
+    // Sync homeX if animal moved far from it, or just update gradually
+    if (Math.abs(wrapDeltaX(this.x - this.homeX)) > WORLD_W * 0.15) {
       this.homeX = this.x; // animal crossed far from home, reset home to current
     }
     // Safety: fix NaN/invalid positions
