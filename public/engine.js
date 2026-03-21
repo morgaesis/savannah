@@ -196,6 +196,8 @@ if (timeDial) {
   document.addEventListener('touchend', () => { dialDragging = false; });
 }
 const _qPause = _urlParams.get('pause') !== null;
+const _qHide = _urlParams.get('hide') !== null;
+if (_qHide) { const c = document.getElementById('controls'); if (c) c.style.display = 'none'; }
 function updateTime() {
   const now = performance.now(), dtReal = (now-lastRealTime)/1000; lastRealTime = now;
   if (!_qPause) simTime = (simTime + dtReal*24/dayLengthSec)%24;
@@ -1613,7 +1615,7 @@ function drawShootingStars(tk){const a=getAmbient(simTime);if(a>0.2){shootingSta
 
 // ── Narration (improved readability) ──
 const narration={text:'',alpha:0,timer:0,cooldown:0};
-function showNarration(text){if(narration.cooldown>0)return;narration.text=text;narration.alpha=0;narration.timer=240;narration.cooldown=600;}
+function showNarration(text){if(narration.cooldown>0||_qHide)return;narration.text=text;narration.alpha=0;narration.timer=240;narration.cooldown=600;}
 function updateNarration(){if(narration.cooldown>0)narration.cooldown--;if(narration.timer<=0)return;narration.timer--;if(narration.timer>210)narration.alpha=(240-narration.timer)/30;else if(narration.timer<60)narration.alpha=narration.timer/60;else narration.alpha=1;}
 function drawNarration(){if(narration.timer<=0||narration.alpha<=0)return;ctx.save();ctx.globalAlpha=narration.alpha*0.85;ctx.font='9px "Segoe UI",system-ui,sans-serif';ctx.textAlign='center';ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillText(narration.text,PW/2+1,PH-15+1);ctx.fillText(narration.text,PW/2-1,PH-15-1);ctx.fillStyle='#e8dcc0';ctx.fillText(narration.text,PW/2,PH-15);ctx.restore();}
 let lastNarrationTick=0;
