@@ -45,7 +45,13 @@ function resizeCanvas() {
     }
   }
 }
-window.addEventListener('resize', resizeCanvas);
+let _resizeTimer = 0;
+function debouncedResize() {
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(resizeCanvas, 100);
+}
+window.addEventListener('resize', debouncedResize);
+window.addEventListener('orientationchange', debouncedResize);
 document.addEventListener('fullscreenchange', () => setTimeout(resizeCanvas, 100));
 
 // ── Configuration (mutable at runtime via config menu) ──
@@ -88,8 +94,9 @@ function worldToScreenX(wx) {
   // Map world x to screen x. VP.x is left edge of viewport.
   // Normalize delta to [0, WORLD_W), so items wrap from right edge to left.
   const dx = ((wx - VP.x) % WORLD_W + WORLD_W) % WORLD_W;
-  // Items more than WORLD_W away wrap around (for objects just off left edge)
-  return Math.floor(dx > WORLD_W - 30 ? dx - WORLD_W : dx);
+  // Wrap items that are more than PW+margin away (they're off-screen right, closer from left)
+  const wrapThresh = Math.max(PW + 60, WORLD_W / 2);
+  return Math.floor(dx > wrapThresh ? dx - WORLD_W : dx);
 }
 function dist(a, b) { return Math.hypot(wrapDeltaX(a.x - b.x), a.y - b.y); }
 function dirFrom(from, to) { const dx = wrapDeltaX(to.x - from.x), dy = to.y - from.y, d = Math.hypot(dx, dy) || 1; return { dx: dx/d, dy: dy/d, d }; }
@@ -599,7 +606,7 @@ class Animal {
     if(isNaN(this.x)||isNaN(this.y)){this.x=this.homeX;this.y=this.homeY;this.vx=0;this.vy=0;}
   }
   draw(ctx, vpx, vpy) {
-    if(!this.alive&&this.state!==STATE.DEAD)return;const sx=worldToScreenX(this.x),sy=Math.floor(this.y-vpy);if(sx<-20||sx>PW+20||sy<-20||sy>PH+20)return;
+    if(!this.alive&&this.state!==STATE.DEAD)return;const sx=worldToScreenX(this.x),sy=Math.floor(this.y-vpy);if(sx<-40||sx>PW+40||sy<-20||sy>PH+20)return;
     const horizonSy=HORIZON-vpy,isFlying=this.brain.flying&&this.state!==STATE.PERCH&&this.state!==STATE.WALK_GROUND;
     let depthScale=1;if(!isFlying&&sy>horizonSy)depthScale=0.85+((sy-horizonSy)/Math.max(1,PH-horizonSy))*0.25;
     const speed=Math.hypot(this.vx,this.vy),isMoving=speed>0.02,wp=this._walkDist*0.35,bob=isMoving?Math.sin(wp*2)*0.6:0;
@@ -1242,7 +1249,7 @@ function drawRimLight(an) {
   const intensity = (t < 8) ? 1 - Math.abs(t - 6.5) / 1.5 : 1 - Math.abs(t - 17.75) / 1.25;
   if (intensity <= 0.1) return;
   const sx = worldToScreenX(an.x), sy = Math.floor(an.y - VP.y);
-  if (sx < -10 || sx > PW + 10 || sy < -10 || sy > PH + 10) return;
+  if (sx < -40 || sx > PW + 40 || sy < -20 || sy > PH + 20) return;
   const sunSide = wrapDeltaX(sun.x - an.x) > 0 ? 1 : -1;
   const h = an.type === 'elephant' ? 8 : an.type === 'giraffe' ? 14 : 5;
   const alpha = intensity * 0.15;
@@ -1258,7 +1265,7 @@ function drawExhaustion(an) {
   const sprinting = an.state === STATE.FLEE || an.state === STATE.CHASE;
   if (!sprinting) return;
   const sx = worldToScreenX(an.x), sy = Math.floor(an.y - VP.y);
-  if (sx < -10 || sx > PW + 10 || sy < -10 || sy > PH + 10) return;
+  if (sx < -40 || sx > PW + 40 || sy < -20 || sy > PH + 20) return;
   const pant = an.frame % 20;
   if (pant < 10) {
     const alpha = (1 - an.energy / 0.35) * 0.4 * (1 - pant / 10);
@@ -1271,7 +1278,7 @@ function drawExhaustion(an) {
 function drawShadow(an) {
   if (!an.alive || an.brain.flying) return;
   const sx = worldToScreenX(an.x), sy = Math.floor(an.y - VP.y);
-  if (sx < -20 || sx > PW + 20 || sy < -20 || sy > PH + 20) return;
+  if (sx < -40 || sx > PW + 40 || sy < -20 || sy > PH + 20) return;
   const a = getAmbient(simTime);
 
   // Sun shadows (daytime) or moon shadows (nighttime)
@@ -1487,10 +1494,10 @@ function drawVultures() {
   for (const v of vultures) {
     const sx = worldToScreenX(v.x);
     const sy = Math.floor(v.y - VP.y);
-    if (sx < -10 || sx > PW + 10 || sy < -5 || sy > PH) continue;
+    if (sx < -40 || sx > PW + 40 || sy < -5 || sy > PH) continue;
 
     // Vulture silhouette: wider wingspan than other birds, distinctive shape
-    const wingPhase = Math.sin(v.frame * 0.04); // very slow wingbeat (soaring)
+    const wingPhase = Math.sin(v.frame * 0.04 + v.phase); // per-vulture offset so they don't flap in sync
     const w = Math.round(wingPhase * 0.8); // barely flaps (gliding)
     ctx.fillStyle = `rgba(30,25,20,${0.6 + amb * 0.3})`;
     // Body
@@ -1541,7 +1548,7 @@ function drawOwl() {
   }
 }
 
-function drawEyeShine(){const a=getAmbient(simTime);if(a>0.25||simTime>6&&simTime<18)return;const sa=(0.25-a)/0.25*0.7;for(const an of animals){if(!an.alive||an.brain.flying||an.state===STATE.REST||an.state===STATE.DEAD)continue;const sx=worldToScreenX(an.x),sy=Math.floor(an.y-VP.y);if(sx<-5||sx>PW+5||sy<-5||sy>PH+5)continue;const eX=sx+an.facing*(an.type==='elephant'?8:an.type==='giraffe'?5:an.type==='lion'?7:5),eY=sy-(an.type==='giraffe'?14:an.type==='elephant'?8:5),ip=an.type==='lion';ctx.fillStyle=`rgba(${ip?180:220},${ip?220:160},${ip?80:40},${sa})`;ctx.fillRect(eX,eY,1,1);ctx.fillStyle=`rgba(${ip?180:220},${ip?220:160},${ip?80:40},${sa*0.3})`;ctx.fillRect(eX-1,eY,1,1);ctx.fillRect(eX+1,eY,1,1);}}
+function drawEyeShine(){const a=getAmbient(simTime);if(a>0.25||simTime>6&&simTime<18)return;const sa=(0.25-a)/0.25*0.7;for(const an of animals){if(!an.alive||an.brain.flying||an.state===STATE.REST||an.state===STATE.DEAD)continue;const sx=worldToScreenX(an.x),sy=Math.floor(an.y-VP.y);if(sx<-40||sx>PW+40||sy<-20||sy>PH+20)continue;const eX=sx+an.facing*(an.type==='elephant'?8:an.type==='giraffe'?5:an.type==='lion'?7:5),eY=sy-(an.type==='giraffe'?14:an.type==='elephant'?8:5),ip=an.type==='lion';ctx.fillStyle=`rgba(${ip?180:220},${ip?220:160},${ip?80:40},${sa})`;ctx.fillRect(eX,eY,1,1);ctx.fillStyle=`rgba(${ip?180:220},${ip?220:160},${ip?80:40},${sa*0.3})`;ctx.fillRect(eX-1,eY,1,1);ctx.fillRect(eX+1,eY,1,1);}}
 
 // ── Dust Devil ──
 const dustDevil={active:false,x:0,y:0,vx:0,life:0,maxLife:0,size:0};
