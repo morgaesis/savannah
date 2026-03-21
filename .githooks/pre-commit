@@ -1,0 +1,8 @@
+#!/bin/bash
+# Pre-commit hook: scan staged files for secrets
+echo "Scanning for secrets..."
+infisical scan --no-git --staged-only 2>/dev/null || infisical scan --no-git 2>/dev/null
+if [ $? -ne 0 ]; then
+    echo "SECRET DETECTED - commit blocked. Fix the leak before committing."
+    exit 1
+fi
