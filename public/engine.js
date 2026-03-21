@@ -433,8 +433,9 @@ function* behaviorLoop(self, getAnimals) {
             self.targetVx = rand(-0.012, 0.012);
             self.targetVy = rand(-0.006, 0.006);
           }
-          // Occasionally lift head (brief pause from eating)
-          if (pcgHash(i, Math.floor(self.seed * 55), 9999) < 0.006) {
+          // Lift head more often when predators are nearby (vigilance scales with fear)
+          const vigilance = 0.006 + self.memory.fear * 0.0008;
+          if (pcgHash(i, Math.floor(self.seed * 55), 9999) < vigilance) {
             self.state = STATE.IDLE; // head up
             self.targetVx = 0; self.targetVy = 0;
             if (pcgHash(i, Math.floor(self.seed * 44), 1111) < 0.5) self.facing *= -1;
