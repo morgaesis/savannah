@@ -346,7 +346,7 @@ function getSeasonGrassColors() {
 // ── World Features ──
 let bgDirty = true;
 let trees=[],shrubs=[],grassTufts=[],rockPoints=[],starPoints=[];
-const waterHole = {x:380,y:0,rx:30,ry:6};
+const waterHole = {x:380,y:0,rx:30,ry:6,level:1.0}; // level 0-1 affects visible size
 function regenerateWorld() {
   WORLD_W=CFG.worldW; WORLD_H=CFG.worldH; HORIZON=Math.floor(WORLD_H*0.45); waterHole.y=HORIZON+50;
   trees=[]; const tc=Math.round(6*WORLD_W/800); for(let i=0;i<tc;i++) trees.push({x:(i*WORLD_W/tc+rand(-20,20))%WORLD_W,y:HORIZON+2+rand(0,14),s:2+Math.floor(rand(0,2))});
@@ -1313,18 +1313,21 @@ function drawWaterHole(tick, al) {
 
   // Sky/light reflection color
   const sky = getSkyColors(simTime);
+  // Water level affects visible water area (banks stay full size)
+  const wlvl = waterHole.level || 1.0;
+  const wrx = Math.floor(waterHole.rx * wlvl), wry = Math.floor(waterHole.ry * wlvl);
   const sun = getSunPos(simTime);
   const moon = !sun ? getMoonPos(simTime) : null;
   const lightSource = sun || moon;
-  const lightColor = sun ? getSunColor(simTime) : [180, 200, 230]; // moonlight blue-white
-  const lightRefX = lightSource ? clamp(wrapDeltaX(lightSource.x - waterHole.x) / waterHole.rx * 0.3, -0.7, 0.7) : 0;
+  const lightColor = sun ? getSunColor(simTime) : [180, 200, 230];
+  const lightRefX = lightSource ? clamp(wrapDeltaX(lightSource.x - waterHole.x) / wrx * 0.3, -0.7, 0.7) : 0;
 
   // Water body
   const wc = [Math.round(55*a), Math.round(75*a), Math.round(105*a)];
   const wh = [Math.round(115*a), Math.round(135*a), Math.round(165*a)];
-  for (let dy = -waterHole.ry; dy <= waterHole.ry; dy++)
-    for (let dx = -waterHole.rx; dx <= waterHole.rx; dx++) {
-      const nx = dx/waterHole.rx, ny = dy/waterHole.ry;
+  for (let dy = -wry; dy <= wry; dy++)
+    for (let dx = -wrx; dx <= wrx; dx++) {
+      const nx = dx/wrx, ny = dy/wry;
       if (nx*nx+ny*ny > 1) continue;
       let sh = Math.sin((dx+tick*0.025)*0.4) * 0.1;
       for (const r of ripples)
@@ -1355,8 +1358,8 @@ function drawWaterHole(tick, al) {
 
   // Reeds
   ctx.fillStyle = rgb([Math.round(45*a), Math.round(60*a), Math.round(22*a)]);
-  for (const rx of [-waterHole.rx+3, -waterHole.rx+6, waterHole.rx-5, waterHole.rx-2]) {
-    const rsx = Math.floor(sx+rx), rsy = Math.floor(sy-waterHole.ry+1);
+  for (const rx of [-wrx+3, -wrx+6, wrx-5, wrx-2]) {
+    const rsx = Math.floor(sx+rx), rsy = Math.floor(sy-wry+1);
     ctx.fillRect(rsx, rsy-3, 1, 4);
     ctx.fillRect(rsx+1, rsy-2, 1, 3);
     ctx.fillRect(rsx, rsy-4, 1, 1);
@@ -2215,7 +2218,18 @@ const spatialGrid = {
   }
 };
 
-function logicStep(){logicTick++;spatialGrid.clear();for(const a of animals)if(a.alive)spatialGrid.insert(a);for(const a of animals)a.tick(logicTick);respawnCheck(logicTick);updateDustDevil(logicTick);updateOwl(logicTick);updateVultures(logicTick);updateRain(logicTick);sleepShift(logicTick);if(logicTick%30===0)detectEvents(logicTick);}
+function logicStep(){
+  logicTick++;
+  spatialGrid.clear();for(const a of animals)if(a.alive)spatialGrid.insert(a);
+  for(const a of animals)a.tick(logicTick);
+  respawnCheck(logicTick);updateDustDevil(logicTick);updateOwl(logicTick);updateVultures(logicTick);updateRain(logicTick);sleepShift(logicTick);
+  // Water level: evaporates in heat, fills during rain, slowly recovers at night
+  const isHot = simTime > 10 && simTime < 16;
+  if (rain.active) waterHole.level = Math.min(1.0, waterHole.level + 0.0003);
+  else if (isHot) waterHole.level = Math.max(0.6, waterHole.level - 0.00005);
+  else waterHole.level = Math.min(1.0, waterHole.level + 0.00002);
+  if(logicTick%30===0)detectEvents(logicTick);
+}
 
 // Sleeping animals occasionally shift position (flip facing)
 function sleepShift(tick) {
