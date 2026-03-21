@@ -668,6 +668,20 @@ class Animal {
         }
       }
     }
+    // Wildebeest velocity alignment (boids-like: match direction of nearby herd)
+    if (this.type === 'wildebeest' && this.alive && this.state === STATE.WANDER) {
+      let avgVx = 0, avgVy = 0, n = 0;
+      for (const o of animals) {
+        if (o === this || !o.alive || o.type !== 'wildebeest') continue;
+        if (dist(this, o) < 40 && Math.hypot(o.vx, o.vy) > 0.02) {
+          avgVx += o.vx; avgVy += o.vy; n++;
+        }
+      }
+      if (n > 0) {
+        this.targetVx += (avgVx / n - this.vx) * 0.05;
+        this.targetVy += (avgVy / n - this.vy) * 0.03;
+      }
+    }
     // Collision avoidance (force scales with speed so sprinting animals still dodge)
     // During flee, we modify targetVx/vy instead of vx/vy so the escape direction
     // still guides the animal but collisions cause lateral spreading
