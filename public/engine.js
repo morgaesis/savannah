@@ -195,9 +195,10 @@ if (timeDial) {
   document.addEventListener('touchmove', (e) => { if (dialDragging && e.touches.length) window._skipTime(dialAngleToTime(e.touches[0])); }, { passive: true });
   document.addEventListener('touchend', () => { dialDragging = false; });
 }
+const _qPause = _urlParams.get('pause') !== null;
 function updateTime() {
   const now = performance.now(), dtReal = (now-lastRealTime)/1000; lastRealTime = now;
-  simTime = (simTime + dtReal*24/dayLengthSec)%24;
+  if (!_qPause) simTime = (simTime + dtReal*24/dayLengthSec)%24;
   timeSlider.value = Math.round(simTime*60);
   const h = Math.floor(simTime), m = Math.floor((simTime-h)*60);
   const ts = String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
