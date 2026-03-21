@@ -1472,6 +1472,23 @@ function drawCrickets(tick) {
 
 function drawFireflies(tk){const a=getAmbient(simTime);if(a>0.4||a<0.08)return;const int=1-Math.abs(a-0.2)/0.2;for(const f of fireflies){f.x+=f.driftX+Math.sin(tk*0.01+f.phase)*0.08;f.y+=f.driftY+Math.cos(tk*0.008+f.phase)*0.05;if(f.x<10)f.x=PW-10;if(f.x>PW-10)f.x=10;if(f.y<HORIZON-VP.y+5)f.y=PH-20;if(f.y>PH-15)f.y=HORIZON-VP.y+10;const glow=(Math.sin(tk*f.speed*0.1+f.phase)+1)*0.5;if(glow<0.3)continue;const al=glow*int*0.7;ctx.fillStyle=`rgba(180,220,80,${al*0.3})`;ctx.fillRect(Math.floor(f.x)-1,Math.floor(f.y)-1,3,3);ctx.fillStyle=`rgba(220,255,120,${al})`;ctx.fillRect(Math.floor(f.x),Math.floor(f.y),1,1);}}
 // Morning mist: ground fog at dawn that slowly dissipates
+// Afternoon dust haze: warm brown band near the horizon during dry hot hours
+function drawDustHaze() {
+  if (simTime < 11 || simTime > 16) return;
+  const intensity = 1 - Math.abs(simTime - 13.5) / 2.5;
+  if (intensity <= 0) return;
+  const hS = HORIZON - VP.y;
+  // Warm dusty band just above the horizon
+  for (let i = 0; i < 10; i++) {
+    const py = hS - 3 + i;
+    if (py < 0 || py >= PH) continue;
+    const fade = (1 - Math.abs(i - 5) / 5);
+    const alpha = intensity * fade * 0.04;
+    ctx.fillStyle = `rgba(160,130,80,${alpha})`;
+    ctx.fillRect(0, py, PW, 1);
+  }
+}
+
 function drawMorningMist(tick) {
   const t = simTime;
   // Mist visible from 5:00-7:30, peaks around 5:30-6:00
@@ -1864,7 +1881,7 @@ function render(){
   }
   drawSunFG();drawWindWaves(logicTick);drawClouds();drawWaterHole(logicTick,animals);updateFootprints(animals);drawFgGrass(logicTick);drawDust(logicTick);drawWindSeeds(logicTick);
   const drawList=[];for(const a of animals)if(a.alive||a.state===STATE.DEAD)drawList.push({y:a.y,type:'a',ref:a});for(const t of trees)drawList.push({y:t.y,type:'t',ref:t});for(const s of shrubs)drawList.push({y:s.y,type:'s',ref:s});drawList.sort((a,b)=>a.y-b.y);for(const d of drawList){if(d.type==='a'){drawShadow(d.ref);d.ref.draw(ctx,VP.x,VP.y);drawRimLight(d.ref);drawExhaustion(d.ref);}else if(d.type==='t')drawTreeDyn(d.ref);else drawShrubDyn(d.ref);}
-  updateParticles(animals);drawFireflies(logicTick);drawCrickets(logicTick);updateAnimalCalls(logicTick);drawDustDevil(logicTick);drawShootingStars(logicTick);drawDistantLightning(logicTick);drawHeatShimmer(logicTick);drawMorningMist(logicTick);drawSunRays();drawVultures();drawOwl();drawEyeShine();
+  updateParticles(animals);drawFireflies(logicTick);drawCrickets(logicTick);updateAnimalCalls(logicTick);drawDustDevil(logicTick);drawShootingStars(logicTick);drawDistantLightning(logicTick);drawHeatShimmer(logicTick);drawDustHaze();drawMorningMist(logicTick);drawSunRays();drawVultures();drawOwl();drawEyeShine();
   // Window vignette
   ctx.drawImage(vigCanvas, 0, 0);
   // Color grade
