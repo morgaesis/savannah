@@ -53,12 +53,21 @@ npx serve dist    # or any static host
 - **Minimap** — click to pan
 - **Time dial** — drag to set time (circular, wraps at midnight)
 
-## Bookmarks
+## Scenes
 
-- [Sunset](https://africa.morgaes.is/?t=17.5&seed=7742&pause) — golden hour
-- [Dawn](https://africa.morgaes.is/?t=6.2&seed=42&pause) — first light
-- [Night](https://africa.morgaes.is/?t=22&seed=42&pause) — Milky Way and moonlight
-- [Noon rain](https://africa.morgaes.is/?t=13&seed=42&rain&pause) — afternoon storm
+| Time | Link |
+|------|------|
+| Pre-dawn | [4:30](https://africa.morgaes.is/?t=4.5&seed=42&pause) |
+| First light | [5:30](https://africa.morgaes.is/?t=5.5&seed=42&pause) |
+| Sunrise | [6:30](https://africa.morgaes.is/?t=6.5&seed=42&pause) |
+| Morning | [9:00](https://africa.morgaes.is/?t=9&seed=42&pause) |
+| Midday heat | [13:00](https://africa.morgaes.is/?t=13&seed=7742&pause) |
+| Afternoon rain | [14:00](https://africa.morgaes.is/?t=14&seed=42&rain&pause) |
+| Golden hour | [17:30](https://africa.morgaes.is/?t=17.5&seed=7742&pause) |
+| Sunset | [18:30](https://africa.morgaes.is/?t=18.5&seed=42&pause) |
+| Dusk | [19:30](https://africa.morgaes.is/?t=19.5&seed=42&pause) |
+| Night | [22:00](https://africa.morgaes.is/?t=22&seed=42&pause) |
+| Deep night | [2:00](https://africa.morgaes.is/?t=2&seed=42&pause) |
 - [Midday heat](https://africa.morgaes.is/?t=13&seed=7742&pause) — animals at waterhole
 
 ## License
