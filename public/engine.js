@@ -1945,12 +1945,30 @@ function drawRain() {
           const wx = sx + dx;
           const wy = sy + dy;
           if (wx >= 0 && wx < PW && wy >= 0 && wy < PH) {
-            // Darker at edges, sky reflection in center
+            // Sky-tinted reflection with darker edges
             const edgeFade = 1 - dist / (p.size / 2);
-            ctx.fillStyle = `rgba(50,60,80,${alpha * edgeFade})`;
+            const sky = getSkyColors(simTime);
+            const sr = Math.round(sky.low[0] * 0.3 + 40), sg = Math.round(sky.low[1] * 0.3 + 50), sb = Math.round(sky.low[2] * 0.3 + 70);
+            ctx.fillStyle = `rgba(${sr},${sg},${sb},${alpha * edgeFade})`;
             ctx.fillRect(wx, wy, 1, 1);
           }
         }
+      }
+    }
+  }
+
+  // Splash ripples on puddles during active rain
+  if (rain.active) {
+    for (const p of puddles) {
+      if (Math.random() > 0.03 * rain.intensity) continue;
+      const sx = Math.floor(p.x + (Math.random() - 0.5) * p.size);
+      const sy = Math.floor(p.y + (Math.random() - 0.5) * p.size * 0.5);
+      if (sx >= 0 && sx < PW && sy >= 0 && sy < PH) {
+        ctx.strokeStyle = `rgba(200,210,230,${0.15 * rain.intensity})`;
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 1 + Math.random() * 2, 0, Math.PI * 2);
+        ctx.stroke();
       }
     }
   }
