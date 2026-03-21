@@ -444,8 +444,24 @@ class Animal {
     // Physics
     const acc=this.state===STATE.FLEE?0.1:0.025;this.vx+=(this.targetVx-this.vx)*acc;this.vy+=(this.targetVy-this.vy)*acc;
     if(this.state===STATE.WANDER||this.state===STATE.GRAZE||this.state===STATE.WALK_GROUND){this.vx+=(pcgHash(globalTick,Math.floor(this.seed*1000),1)-0.5)*0.012;this.vy+=(pcgHash(globalTick,Math.floor(this.seed*1000),2)-0.5)*0.004;}
+    const nearSeam = this.x < 20 || this.x > WORLD_W - 20;
     // Herding
-    if(this.brain.herd&&this.alive&&!this.brain.flying&&this.state!==STATE.FLEE&&this.state!==STATE.CHASE){let hdx=0,hcy=0,hn=0;for(const o of animals){if(o===this||!o.alive||o.type!==this.type)continue;if(dist(this,o)<100){hdx+=wrapDeltaX(o.x-this.x);hcy+=o.y;hn++;}}if(hn>0){const cdx=hdx/hn,cdy=hcy/hn-this.y,d=Math.hypot(cdx,cdy);if(d>15){const pull=this.brain.herdDesire*0.003*Math.min(d/50,1);this.vx+=(cdx/d)*pull;this.vy+=(cdy/d)*pull*0.3;}}}
+    if(this.brain.herd&&this.alive&&!this.brain.flying&&this.state!==STATE.FLEE&&this.state!==STATE.CHASE){
+      let hdx=0,hcy=0,hn=0;
+      for(const o of animals){if(o===this||!o.alive||o.type!==this.type)continue;if(dist(this,o)<100){hdx+=wrapDeltaX(o.x-this.x);hcy+=o.y;hn++;}}
+      if(hn>0){
+        const cdx=hdx/hn,cdy=hcy/hn-this.y,d=Math.hypot(cdx,cdy);
+        if(d>15){
+          const pull=this.brain.herdDesire*0.003*Math.min(d/50,1);
+          const pullX = (cdx/d)*pull, pullY = (cdy/d)*pull*0.3;
+          // Near seam: only apply herd pull if it agrees with current velocity direction
+          // This prevents flip-flopping at the wrap boundary
+          if (!nearSeam || Math.sign(pullX) === Math.sign(this.vx) || Math.abs(this.vx) < 0.005) {
+            this.vx += pullX; this.vy += pullY;
+          }
+        }
+      }
+    }
     // Collision
     if(!this.brain.flying||this.state===STATE.PERCH||this.state===STATE.WALK_GROUND){const ps=this.type==='elephant'?12:this.type==='giraffe'?8:5;for(const o of spatialGrid.query(this.x,this.y,ps)){if(o===this||!o.alive)continue;if(o.brain.flying&&o.state!==STATE.PERCH&&o.state!==STATE.WALK_GROUND)continue;const dx=wrapDeltaX(this.x-o.x),dy=this.y-o.y,d=Math.hypot(dx,dy);if(d<ps&&d>0.1){const push=(ps-d)/ps*0.04;this.vx+=(dx/d)*push;this.vy+=(dy/d)*push*0.3;}}}
     // Waterhole avoidance
@@ -456,10 +472,13 @@ class Animal {
     // Wrap X, soft-clamp Y
     if(this.brain.flying&&this.state!==STATE.PERCH&&this.state!==STATE.WALK_GROUND){this.x=wrapX(this.x);if(this.y<15){this.vy+=0.02;this.targetVy=Math.max(this.targetVy,0);}if(this.y>HORIZON-3){this.vy-=0.02;this.targetVy=Math.min(this.targetVy,0);}this.y=clamp(this.y,10,HORIZON);}else{this.x=wrapX(this.x);if(this.y<HORIZON+3){this.vy+=0.01;this.targetVy+=0.003;}else if(this.y>WORLD_H-15){this.vy-=0.01;this.targetVy-=0.003;}this.y=clamp(this.y,HORIZON+1,WORLD_H-5);}
     if(Math.abs(this.vx)>0.02)this.facing=this.vx>0?1:-1;
-    // Keep homeX in sync with wrapped position (prevents seam oscillation)
-    // Sync homeX if animal moved far from it, or just update gradually
+    // Seam anti-oscillation: commit to velocity direction near wrap boundary
+    if (nearSeam && Math.abs(this.vx) > 0.01) {
+      // Maintain momentum through the seam — don't let forces reverse us
+      this.homeX = this.x;
+    }
     if (Math.abs(wrapDeltaX(this.x - this.homeX)) > WORLD_W * 0.15) {
-      this.homeX = this.x; // animal crossed far from home, reset home to current
+      this.homeX = this.x;
     }
     // Safety: fix NaN/invalid positions
     if(isNaN(this.x)||isNaN(this.y)){this.x=this.homeX;this.y=this.homeY;this.vx=0;this.vy=0;}
