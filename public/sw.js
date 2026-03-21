@@ -1,4 +1,4 @@
-const CACHE = 'savannah-v3';
+const CACHE = 'savannah-v4';
 const ASSETS = ['/', '/index.html', '/engine.js', '/favicon.svg', '/og.png', '/manifest.json'];
 
 self.addEventListener('install', e => {
