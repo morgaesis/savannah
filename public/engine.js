@@ -1319,6 +1319,9 @@ function drawWaterHole(tick, al) {
   const sx = worldToScreenX(waterHole.x), sy = waterHole.y - VP.y;
   if (sx < -50 || sx > PW + 50 || sy < -20 || sy > PH + 20) return;
   const a = getAmbient(simTime);
+  // Water level affects visible water area (banks stay full size)
+  const wlvl = waterHole.level || 1.0;
+  const wrx = Math.floor(waterHole.rx * wlvl), wry = Math.floor(waterHole.ry * wlvl);
 
   // Muddy banks
   ctx.fillStyle = `rgba(${Math.round(65*a)},${Math.round(50*a)},${Math.round(28*a)},0.7)`;
@@ -1345,9 +1348,6 @@ function drawWaterHole(tick, al) {
   }
   // Sky/light reflection color
   const sky = getSkyColors(simTime);
-  // Water level affects visible water area (banks stay full size)
-  const wlvl = waterHole.level || 1.0;
-  const wrx = Math.floor(waterHole.rx * wlvl), wry = Math.floor(waterHole.ry * wlvl);
   const sun = getSunPos(simTime);
   const moon = !sun ? getMoonPos(simTime) : null;
   const lightSource = sun || moon;
