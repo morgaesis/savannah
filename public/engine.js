@@ -75,13 +75,20 @@ if (_qAnimals) {
     if (key && !isNaN(val)) CFG.animalCounts[key] = clamp(val, 0, 20);
   }
 }
-// Sandbox world: 3x viewport width, non-wrapping
-let WORLD_W = PW * 3, WORLD_H = CFG.worldH;
-let HORIZON = Math.floor(WORLD_H * 0.45);
-// VP.y is dynamic: positions horizon at ~52% from top regardless of viewport height
+// FULL 2D SANDBOX: 4x viewport area (2x width, 2x height)
+let WORLD_W = PW * 2, WORLD_H = PH * 2;
+let HORIZON = Math.floor(WORLD_H * 0.5); // Horizon at middle of world
+// Viewport position - both X and Y are independently controllable
 const _qVP = _urlParams.get('vp');
-const VP = { x: _qVP ? Number(_qVP) : WORLD_W / 2 - PW / 2, get y() { return Math.floor(HORIZON - PH * 0.52); } };
-function clampVP() { VP.x = clamp(VP.x, 0, WORLD_W - PW); }
+const _qVPY = _urlParams.get('vpy');
+const VP = { 
+  x: _qVP ? Number(_qVP) : WORLD_W / 2 - PW / 2, 
+  y: _qVPY ? Number(_qVPY) : WORLD_H / 2 - PH / 2 
+};
+function clampVP() { 
+  VP.x = clamp(VP.x, 0, WORLD_W - PW); 
+  VP.y = clamp(VP.y, 0, WORLD_H - PH);
+}
 
 canvas.addEventListener("click", (e) => {
   // Don't trigger fullscreen if user was dragging
@@ -227,12 +234,14 @@ function updateTime() {
 }
 
 // ── Input System ──
-const inputState = { left:false, right:false, dragging:false, dragStartX:0, dragVpStart:0 };
+const inputState = { left:false, right:false, up:false, down:false, dragging:false, dragStartX:0, dragVpStart:0 };
 let configMenuOpen = false;
 document.addEventListener("keydown", e => {
   if (configMenuOpen) return;
   if (e.key==="ArrowLeft"||e.key==="a") inputState.left=true;
   if (e.key==="ArrowRight"||e.key==="d") inputState.right=true;
+  if (e.key==="ArrowUp"||e.key==="w") inputState.up=true;
+  if (e.key==="ArrowDown"||e.key==="s") inputState.down=true;
   // Time skip: n = next period (dawn/noon/sunset/night)
   if (e.key === 'n') {
     const periods = [5.5, 7, 12, 17.5, 20.5];
@@ -259,7 +268,7 @@ document.addEventListener("keydown", e => {
       <b>Click</b> fullscreen &nbsp; <b>Drag</b> pan<br>
       <b>N</b> next time period<br>
       <b>S</b> cycle speed (1x/60x/300x)<br>
-      <b>←→</b> pan viewport<br>
+      <b>↑↓←→</b> or <b>WASD</b> pan viewport<br>
       <b>?</b> this help<br>
       <div style="border-top:1px solid #333;margin:6px 0;"></div>
       <span style="color:#665;font-size:10px;">click anywhere to close</span>
@@ -268,14 +277,19 @@ document.addEventListener("keydown", e => {
     document.body.appendChild(hel);
   }
 });
-document.addEventListener("keyup", e => { if (e.key==="ArrowLeft"||e.key==="a") inputState.left=false; if (e.key==="ArrowRight"||e.key==="d") inputState.right=false; });
-canvas.addEventListener("mousedown", e => { if (e.button!==0) return; inputState.dragging=true; inputState.dragStartX=e.clientX; inputState.dragVpStart=VP.x; canvas.style.cursor="grabbing"; });
-document.addEventListener("mousemove", e => { if (!inputState.dragging) return; VP.x = inputState.dragVpStart - (e.clientX-inputState.dragStartX)*PW/canvas.clientWidth; clampVP(); bgDirty=true; });
+document.addEventListener("keyup", e => { 
+  if (e.key==="ArrowLeft"||e.key==="a") inputState.left=false; 
+  if (e.key==="ArrowRight"||e.key==="d") inputState.right=false; 
+  if (e.key==="ArrowUp"||e.key==="w") inputState.up=false; 
+  if (e.key==="ArrowDown"||e.key==="s") inputState.down=false; 
+});
+canvas.addEventListener("mousedown", e => { if (e.button!==0) return; inputState.dragging=true; inputState.dragStartX=e.clientX; inputState.dragStartY=e.clientY; inputState.dragVpStartX=VP.x; inputState.dragVpStartY=VP.y; canvas.style.cursor="grabbing"; });
+document.addEventListener("mousemove", e => { if (!inputState.dragging) return; VP.x = inputState.dragVpStartX - (e.clientX-inputState.dragStartX)*PW/canvas.clientWidth; VP.y = inputState.dragVpStartY - (e.clientY-inputState.dragStartY)*PH/canvas.clientHeight; clampVP(); bgDirty=true; });
 document.addEventListener("mouseup", () => { inputState.dragging=false; canvas.style.cursor="pointer"; });
-canvas.addEventListener("touchstart", e => { if (e.touches.length===1) { inputState.dragging=true; inputState.dragStartX=e.touches[0].clientX; inputState.dragVpStart=VP.x; } }, {passive:true});
-document.addEventListener("touchmove", e => { if (!inputState.dragging||e.touches.length!==1) return; VP.x = inputState.dragVpStart - (e.touches[0].clientX-inputState.dragStartX)*PW/canvas.clientWidth; clampVP(); bgDirty=true; }, {passive:true});
+canvas.addEventListener("touchstart", e => { if (e.touches.length===1) { inputState.dragging=true; inputState.dragStartX=e.touches[0].clientX; inputState.dragStartY=e.touches[0].clientY; inputState.dragVpStartX=VP.x; inputState.dragVpStartY=VP.y; } }, {passive:true});
+document.addEventListener("touchmove", e => { if (!inputState.dragging||e.touches.length!==1) return; VP.x = inputState.dragVpStartX - (e.touches[0].clientX-inputState.dragStartX)*PW/canvas.clientWidth; VP.y = inputState.dragVpStartY - (e.touches[0].clientY-inputState.dragStartY)*PH/canvas.clientHeight; clampVP(); bgDirty=true; }, {passive:true});
 document.addEventListener("touchend", () => { inputState.dragging=false; });
-function applyInput() { if (inputState.left) { VP.x -= 1.2; clampVP(); bgDirty=true; } if (inputState.right) { VP.x += 1.2; clampVP(); bgDirty=true; } }
+function applyInput() { if (inputState.left) { VP.x -= 1.2; clampVP(); bgDirty=true; } if (inputState.right) { VP.x += 1.2; clampVP(); bgDirty=true; } if (inputState.up) { VP.y -= 1.2; clampVP(); bgDirty=true; } if (inputState.down) { VP.y += 1.2; clampVP(); bgDirty=true; } }
 
 // ── Sky / Ambient ──
 const SKY_KEYS = [ {t:0,top:[8,8,25],mid:[12,12,35],low:[18,18,45]},{t:5,top:[8,8,25],mid:[12,12,35],low:[18,18,45]},{t:5.5,top:[25,15,55],mid:[60,30,50],low:[100,50,50]},{t:6.5,top:[40,25,80],mid:[170,85,50],low:[225,145,65]},{t:8,top:[90,140,210],mid:[140,180,235],low:[190,210,240]},{t:12,top:[70,130,210],mid:[120,170,235],low:[170,200,240]},{t:16,top:[80,135,200],mid:[150,170,200],low:[200,190,175]},{t:17.5,top:[45,25,85],mid:[175,85,50],low:[230,145,60]},{t:19,top:[25,15,60],mid:[70,35,45],low:[110,55,45]},{t:20,top:[12,10,35],mid:[18,15,40],low:[25,20,48]},{t:21,top:[8,8,25],mid:[12,12,35],low:[18,18,45]},{t:24,top:[8,8,25],mid:[12,12,35],low:[18,18,45]} ];
@@ -742,26 +756,21 @@ class Animal {
     if(!this.brain.flying||this.state===STATE.PERCH||this.state===STATE.WALK_GROUND){this.vy*=0.88;const yDrift=this.y-this.homeY;if(Math.abs(yDrift)>15&&this.state!==STATE.FLEE&&this.state!==STATE.APPROACH_WATER&&this.state!==STATE.DRINK)this.vy-=yDrift*0.001;}
     this.x+=this.vx;this.y+=this.vy;if(!this.brain.flying||this.state===STATE.WALK_GROUND)this._walkDist+=Math.hypot(this.vx,this.vy);
     // Boundary avoidance (boids-like): steer away from invisible walls
-    const boundaryMargin = 40;
-    const boundaryForce = 0.015;
-    if (this.x < boundaryMargin) { this.vx += boundaryForce * (1 - this.x / boundaryMargin); this.targetVx = Math.max(this.targetVx, 0.01); }
-    if (this.x > WORLD_W - boundaryMargin) { this.vx -= boundaryForce * (1 - (WORLD_W - this.x) / boundaryMargin); this.targetVx = Math.min(this.targetVx, -0.01); }
-    // Clamp position to world bounds
-    this.x = clamp(this.x, 5, WORLD_W - 5);
-    // Y bounds
-    if(this.brain.flying&&this.state!==STATE.PERCH&&this.state!==STATE.WALK_GROUND){
-      if(this.y<15){this.vy+=0.02;this.targetVy=Math.max(this.targetVy,0);}
-      if(this.y>HORIZON-3){this.vy-=0.02;this.targetVy=Math.min(this.targetVy,0);}
-      this.y=clamp(this.y,10,HORIZON);
-    }else{
-      if(this.y<HORIZON+3){this.vy+=0.01;this.targetVy+=0.003;}
-      else if(this.y>WORLD_H-15){this.vy-=0.01;this.targetVy-=0.003;}
-      this.y=clamp(this.y,HORIZON+1,WORLD_H-5);
-    }
+    const boundaryMargin = 50;
+    const boundaryForce = 0.02;
+    if (this.x < boundaryMargin) { this.vx += boundaryForce * (1 - this.x / boundaryMargin); this.targetVx = Math.max(this.targetVx, 0.02); }
+    if (this.x > WORLD_W - boundaryMargin) { this.vx -= boundaryForce * (1 - (WORLD_W - this.x) / boundaryMargin); this.targetVx = Math.min(this.targetVx, -0.02); }
+    if (this.y < boundaryMargin) { this.vy += boundaryForce * (1 - this.y / boundaryMargin); this.targetVy = Math.max(this.targetVy, 0.02); }
+    if (this.y > WORLD_H - boundaryMargin) { this.vy -= boundaryForce * (1 - (WORLD_H - this.y) / boundaryMargin); this.targetVy = Math.min(this.targetVy, -0.02); }
+    
+    this.x = clamp(this.x, 10, WORLD_W - 10);
+    this.y = clamp(this.y, 10, WORLD_H - 10);
+    
     if(Math.abs(this.vx)>0.02)this.facing=this.vx>0?1:-1;
     // Update home position
-    if (Math.abs(this.x - this.homeX) > WORLD_W * 0.15) {
+    if (Math.abs(this.x - this.homeX) > WORLD_W * 0.15 || Math.abs(this.y - this.homeY) > WORLD_H * 0.15) {
       this.homeX = this.x;
+      this.homeY = this.y;
     }
     // Safety: fix NaN/invalid positions
     if(isNaN(this.x)||isNaN(this.y)){this.x=this.homeX;this.y=this.homeY;this.vx=0;this.vy=0;}
