@@ -1033,7 +1033,7 @@ function respawnCheck(tick) {
 // ── Background Rendering ──
 const bgCanvas = document.createElement("canvas"); bgCanvas.width=PW;bgCanvas.height=PH;
 const bgCtx = bgCanvas.getContext("2d");
-let lastBgTime=-999, lastBgVpx=-999; bgDirty=true;
+let lastBgTime=-999, lastBgVpx=-999, lastBgVpy=-999; bgDirty=true;
 
 function renderBg() {
   const t=simTime,sky=getSkyColors(t),amb=getAmbient(t),hS=HORIZON-VP.y;
@@ -1263,7 +1263,7 @@ function renderBg() {
   }
   for(const s of shrubs){const x=worldToScreenX(s.x),y=Math.floor(s.y-VP.y);if(x>-10&&x<PW+10){bgCtx.fillStyle=`rgba(20,15,10,${0.08*amb})`;bgCtx.fillRect(x-s.s*3,y+1,s.s*3,1);}}
   for(let i=0;i<16;i++){const a=0.35*(1-i/16)*(1-i/16);bgCtx.fillStyle=`rgba(8,6,3,${a})`;bgCtx.fillRect(0,i,PW,1);bgCtx.fillRect(0,PH-1-i,PW,1);bgCtx.fillRect(i,0,1,PH);bgCtx.fillRect(PW-1-i,0,1,PH);}
-  lastBgTime=t;lastBgVpx=VP.x;bgDirty=false;
+  lastBgTime=t;lastBgVpx=VP.x;lastBgVpy=VP.y;bgDirty=false;
 }
 
 // ── Sun (foreground for smooth movement) ──
@@ -2279,7 +2279,7 @@ function sleepShift(tick) {
 function render(){ try {
   const now=performance.now(),frameDt=now-lastFrameTime;lastFrameTime=now;updateTime();applyInput();
   logicAccumulator+=frameDt;let steps=0;while(logicAccumulator>=LOGIC_DT&&steps<4){logicStep();logicAccumulator-=LOGIC_DT;steps++;}if(logicAccumulator>LOGIC_DT*4)logicAccumulator=0;
-  const timeDelta=Math.abs(simTime-lastBgTime),vpDelta=Math.abs(VP.x-lastBgVpx);if(timeDelta>0.008||timeDelta>23.9||vpDelta>0.5||bgDirty)renderBg();
+  const timeDelta=Math.abs(simTime-lastBgTime),vpDeltaX=Math.abs(VP.x-lastBgVpx),vpDeltaY=Math.abs(VP.y-lastBgVpy);if(timeDelta>0.008||timeDelta>23.9||vpDeltaX>0.5||vpDeltaY>0.5||bgDirty)renderBg();
   ctx.drawImage(bgCanvas,0,0);
   // Moonlight wash on ground
   const mlAlpha = getMoonlightAlpha(simTime);
