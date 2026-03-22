@@ -75,12 +75,13 @@ if (_qAnimals) {
     if (key && !isNaN(val)) CFG.animalCounts[key] = clamp(val, 0, 20);
   }
 }
-// Ensure world is at least as wide as the viewport (prevents rendering gaps)
-let WORLD_W = Math.max(CFG.worldW, PW + 100), WORLD_H = CFG.worldH;
+// Sandbox world: 3x viewport width, non-wrapping
+let WORLD_W = PW * 3, WORLD_H = CFG.worldH;
 let HORIZON = Math.floor(WORLD_H * 0.45);
 // VP.y is dynamic: positions horizon at ~52% from top regardless of viewport height
 const _qVP = _urlParams.get('vp');
-const VP = { x: _qVP ? Number(_qVP) : 180, get y() { return Math.floor(HORIZON - PH * 0.52); } };
+const VP = { x: _qVP ? Number(_qVP) : WORLD_W / 2 - PW / 2, get y() { return Math.floor(HORIZON - PH * 0.52); } };
+function clampVP() { VP.x = clamp(VP.x, 0, WORLD_W - PW); }
 
 canvas.addEventListener("click", (e) => {
   // Don't trigger fullscreen if user was dragging
@@ -102,18 +103,13 @@ function lerpColor(a, b, t) { return [Math.round(lerp(a[0],b[0],t)), Math.round(
 function rgb(c) { return `rgb(${c[0]},${c[1]},${c[2]})`; }
 function rand(a, b) { return a + Math.random() * (b - a); }
 function randInt(a, b) { return Math.floor(rand(a, b)); }
-function wrapX(x) { return ((x % WORLD_W) + WORLD_W) % WORLD_W; }
-function wrapDeltaX(dx) { if (dx > WORLD_W/2) return dx - WORLD_W; if (dx < -WORLD_W/2) return dx + WORLD_W; return dx; }
+function wrapX(x) { return clamp(x, 0, WORLD_W); }
+function wrapDeltaX(dx) { return dx; }
 function worldToScreenX(wx) {
-  // Map world x to screen x. VP.x is left edge of viewport.
-  // Normalize delta to [0, WORLD_W), so items wrap from right edge to left.
-  const dx = ((wx - VP.x) % WORLD_W + WORLD_W) % WORLD_W;
-  // Wrap items that are more than PW+margin away (they're off-screen right, closer from left)
-  const wrapThresh = Math.max(PW + 60, WORLD_W / 2);
-  return Math.floor(dx > wrapThresh ? dx - WORLD_W : dx);
+  return Math.floor(wx - VP.x);
 }
-function dist(a, b) { return Math.hypot(wrapDeltaX(a.x - b.x), a.y - b.y); }
-function dirFrom(from, to) { const dx = wrapDeltaX(to.x - from.x), dy = to.y - from.y, d = Math.hypot(dx, dy) || 1; return { dx: dx/d, dy: dy/d, d }; }
+function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+function dirFrom(from, to) { const dx = to.x - from.x, dy = to.y - from.y, d = Math.hypot(dx, dy) || 1; return { dx: dx/d, dy: dy/d, d }; }
 function pcgHash(x, y, seed) { let h = (x*374761393 + y*668265263 + seed*1274126177)|0; h = Math.imul(h^(h>>>16), 0x85ebca6b); h = Math.imul(h^(h>>>13), 0xc2b2ae35); return ((h^(h>>>16))>>>0)/4294967296; }
 function pcgHashN(x, y, seed, n) { const out = []; for (let i = 0; i < n; i++) out.push(pcgHash(x, y, seed + i*7919)); return out; }
 function jitteredGridPoints(aX, aY, aW, aH, cell, seed, density) { const pts = [], cols = Math.ceil(aW/cell), rows = Math.ceil(aH/cell); for (let cy = 0; cy < rows; cy++) for (let cx = 0; cx < cols; cx++) { const [r1,r2,r3] = pcgHashN(cx,cy,seed,3); if (r3 > (density||1)) continue; const px = aX+cx*cell+r1*cell*0.9, py = aY+cy*cell+r2*cell*0.9; if (px >= aX && px < aX+aW && py >= aY && py < aY+aH) pts.push({x:px,y:py,hash:r1}); } return pts; }
@@ -274,12 +270,12 @@ document.addEventListener("keydown", e => {
 });
 document.addEventListener("keyup", e => { if (e.key==="ArrowLeft"||e.key==="a") inputState.left=false; if (e.key==="ArrowRight"||e.key==="d") inputState.right=false; });
 canvas.addEventListener("mousedown", e => { if (e.button!==0) return; inputState.dragging=true; inputState.dragStartX=e.clientX; inputState.dragVpStart=VP.x; canvas.style.cursor="grabbing"; });
-document.addEventListener("mousemove", e => { if (!inputState.dragging) return; VP.x = wrapX(inputState.dragVpStart - (e.clientX-inputState.dragStartX)*PW/canvas.clientWidth); bgDirty=true; });
+document.addEventListener("mousemove", e => { if (!inputState.dragging) return; VP.x = inputState.dragVpStart - (e.clientX-inputState.dragStartX)*PW/canvas.clientWidth; clampVP(); bgDirty=true; });
 document.addEventListener("mouseup", () => { inputState.dragging=false; canvas.style.cursor="pointer"; });
 canvas.addEventListener("touchstart", e => { if (e.touches.length===1) { inputState.dragging=true; inputState.dragStartX=e.touches[0].clientX; inputState.dragVpStart=VP.x; } }, {passive:true});
-document.addEventListener("touchmove", e => { if (!inputState.dragging||e.touches.length!==1) return; VP.x = wrapX(inputState.dragVpStart - (e.touches[0].clientX-inputState.dragStartX)*PW/canvas.clientWidth); bgDirty=true; }, {passive:true});
+document.addEventListener("touchmove", e => { if (!inputState.dragging||e.touches.length!==1) return; VP.x = inputState.dragVpStart - (e.touches[0].clientX-inputState.dragStartX)*PW/canvas.clientWidth; clampVP(); bgDirty=true; }, {passive:true});
 document.addEventListener("touchend", () => { inputState.dragging=false; });
-function applyInput() { if (inputState.left) { VP.x = wrapX(VP.x-1.2); bgDirty=true; } if (inputState.right) { VP.x = wrapX(VP.x+1.2); bgDirty=true; } }
+function applyInput() { if (inputState.left) { VP.x -= 1.2; clampVP(); bgDirty=true; } if (inputState.right) { VP.x += 1.2; clampVP(); bgDirty=true; } }
 
 // ── Sky / Ambient ──
 const SKY_KEYS = [ {t:0,top:[8,8,25],mid:[12,12,35],low:[18,18,45]},{t:5,top:[8,8,25],mid:[12,12,35],low:[18,18,45]},{t:5.5,top:[25,15,55],mid:[60,30,50],low:[100,50,50]},{t:6.5,top:[40,25,80],mid:[170,85,50],low:[225,145,65]},{t:8,top:[90,140,210],mid:[140,180,235],low:[190,210,240]},{t:12,top:[70,130,210],mid:[120,170,235],low:[170,200,240]},{t:16,top:[80,135,200],mid:[150,170,200],low:[200,190,175]},{t:17.5,top:[45,25,85],mid:[175,85,50],low:[230,145,60]},{t:19,top:[25,15,60],mid:[70,35,45],low:[110,55,45]},{t:20,top:[12,10,35],mid:[18,15,40],low:[25,20,48]},{t:21,top:[8,8,25],mid:[12,12,35],low:[18,18,45]},{t:24,top:[8,8,25],mid:[12,12,35],low:[18,18,45]} ];
@@ -346,14 +342,16 @@ function getSeasonGrassColors() {
 // ── World Features ──
 let bgDirty = true;
 let trees=[],shrubs=[],grassTufts=[],rockPoints=[],starPoints=[];
-const waterHole = {x:380,y:0,rx:30,ry:6,level:1.0}; // level 0-1 affects visible size
+const waterHole = {x:0,y:0,rx:30,ry:6,level:1.0}; // level 0-1 affects visible size
 function regenerateWorld() {
-  WORLD_W=CFG.worldW; WORLD_H=CFG.worldH; HORIZON=Math.floor(WORLD_H*0.45); waterHole.y=HORIZON+50;
-  trees=[]; const tc=Math.round(6*WORLD_W/800); for(let i=0;i<tc;i++) trees.push({x:(i*WORLD_W/tc+rand(-20,20))%WORLD_W,y:HORIZON+2+rand(0,14),s:2+Math.floor(rand(0,2))});
-  shrubs=[]; const sc=Math.round(25*WORLD_W/800); for(let i=0;i<sc;i++) shrubs.push({x:(i*137+43)%WORLD_W,y:HORIZON+5+(i*53%70),s:1+(i%3)});
+  WORLD_W = PW * 3; WORLD_H = CFG.worldH; HORIZON = Math.floor(WORLD_H * 0.45);
+  waterHole.x = WORLD_W / 2; waterHole.y = HORIZON + 50;
+  trees=[]; const tc=Math.round(6*WORLD_W/800); for(let i=0;i<tc;i++) trees.push({x:clamp(i*WORLD_W/tc+rand(-20,20),20,WORLD_W-20),y:HORIZON+2+rand(0,14),s:2+Math.floor(rand(0,2))});
+  shrubs=[]; const sc=Math.round(25*WORLD_W/800); for(let i=0;i<sc;i++) shrubs.push({x:clamp((i*137+43)%WORLD_W,20,WORLD_W-20),y:HORIZON+5+(i*53%70),s:1+(i%3)});
   grassTufts=jitteredGridPoints(0,HORIZON+2,WORLD_W,WORLD_H-HORIZON-12,12,WORLD_SEED+42,0.55);
   rockPoints=jitteredGridPoints(0,HORIZON+8,WORLD_W,WORLD_H-HORIZON-20,50,WORLD_SEED+137,0.25);
   starPoints=jitteredGridPoints(0,0,PW,HORIZON-VP.y,6,WORLD_SEED+271,0.55);
+  VP.x = WORLD_W / 2 - PW / 2; clampVP();
   bgDirty=true;
 }
 regenerateWorld();
@@ -560,7 +558,7 @@ function* goToWater(self) {
     if (dir.d < 8) {
       self.state = STATE.DRINK;
       self.targetVx = 0; self.targetVy = 0;
-      self.facing = wrapDeltaX(waterHole.x - self.x) > 0 ? 1 : -1;
+      self.facing = waterHole.x - self.x > 0 ? 1 : -1;
       // Big splash for elephants arriving at water
       if (self.type === 'elephant') {
         for (let s = 0; s < 6; s++) spawnParticle('splash', self.x+rand(-5,5), self.y+rand(-2,1), rand(-0.12,0.12), rand(-0.2,-0.06), randInt(15,30), rand(1.5,2.5), [90,130,170]);
@@ -579,7 +577,7 @@ function* goToWater(self) {
   }
 }
 
-function* herdDrift(self, getAnimals) { if(!self.brain.herd){yield 60;return;} const mates=getAnimals().filter(a=>a!==self&&a.type===self.type&&a.alive); if(!mates.length){yield 60;return;} self.state=STATE.WANDER; let cdx=0,cy=0; for(const m of mates){cdx+=wrapDeltaX(m.x-self.x);cy+=m.y;} const cx=wrapX(self.x+cdx/mates.length); cy/=mates.length; const dir=dirFrom(self,{x:cx,y:cy}); if(dir.d>30){self.targetVx=dir.dx*self.brain.speed*0.4+rand(-0.02,0.02);self.targetVy=dir.dy*self.brain.speed*0.15;yield randInt(100,300);}else yield randInt(80,200); }
+function* herdDrift(self, getAnimals) { if(!self.brain.herd){yield 60;return;} const mates=getAnimals().filter(a=>a!==self&&a.type===self.type&&a.alive); if(!mates.length){yield 60;return;} self.state=STATE.WANDER; let cdx=0,cy=0; for(const m of mates){cdx+=m.x-self.x;cy+=m.y;} const cx=clamp(self.x+cdx/mates.length,50,WORLD_W-50); cy/=mates.length; const dir=dirFrom(self,{x:cx,y:cy}); if(dir.d>30){self.targetVx=dir.dx*self.brain.speed*0.4+rand(-0.02,0.02);self.targetVy=dir.dy*self.brain.speed*0.15;yield randInt(100,300);}else yield randInt(80,200); }
 
 function* lionHunt(self, getAnimals) {
   self.state=STATE.HUNT; let target=null,nd=Infinity; for(const o of getAnimals()){if(o===self||!o.alive||!o.brain.prey)continue;const d=dist(self,o);if(d<self.brain.huntRange&&d<nd){target=o;nd=d;}} if(!target){self.state=STATE.REST;yield randInt(600,1500);return;}
@@ -602,7 +600,7 @@ function* birdBehavior(self, getAnimals) {
   if (isNight) {
     // Roost at night
     self.state = STATE.PERCH; self.targetVx = 0; self.targetVy = 0;
-    const nt = trees.find(t => Math.abs(wrapDeltaX(t.x - self.x)) < 40);
+    const nt = trees.find(t => Math.abs(t.x - self.x) < 40);
     if (nt) { self.x = nt.x + rand(-5, 5); self.y = nt.y - nt.s * 4; }
     yield randInt(300, 900);
     return;
@@ -640,8 +638,8 @@ function* birdBehavior(self, getAnimals) {
     return;
   }
   const onGround=self.y>=HORIZON,choice=Math.random();
-  if(choice<0.35){if(onGround){self.state=STATE.FLOCK;birdScatterEffect(self.x,self.y);self.targetVx=rand(-0.1,0.1);self.targetVy=-self.brain.speed*0.5;for(let i=0;i<60&&self.y>HORIZON-15;i++)yield 1;}self.state=STATE.FLOCK;self._flockPhase=rand(0,Math.PI*2);for(let i=0,dur=randInt(400,900);i<dur;i++){const t=(self._tick+i)*0.01+self._flockPhase;let fx=Math.cos(t)*self.brain.speed*0.35,fy=Math.sin(t*0.6)*self.brain.speed*0.12;const near=getAnimals().filter(a=>a!==self&&a.type==='bird'&&a.state===STATE.FLOCK&&dist(self,a)<50);if(near.length){let cx=0,cy=0;for(const a of near){cx+=wrapDeltaX(a.x-self.x);cy+=a.y;}fx+=wrapDeltaX(self.x+cx/near.length-self.x)*0.001;fy+=(cy/near.length-self.y)*0.001;}self.targetVx=fx;self.targetVy=fy;yield 1;}}
-  else if(choice<0.6){if(!onGround){self.state=STATE.FLOCK;const landY=HORIZON+rand(5,60);for(let i=0;i<90&&self.y<landY-2;i++){const dx=wrapDeltaX(self.x+rand(-20,20)-self.x),dy=landY-self.y,d=Math.hypot(dx,dy)||1;self.targetVx=(dx/d)*self.brain.speed*0.3;self.targetVy=(dy/d)*self.brain.speed*0.25;yield 1;}}self.state=STATE.PERCH;self.targetVx=0;self.targetVy=0;yield randInt(300,800);}
+  if(choice<0.35){if(onGround){self.state=STATE.FLOCK;birdScatterEffect(self.x,self.y);self.targetVx=rand(-0.1,0.1);self.targetVy=-self.brain.speed*0.5;for(let i=0;i<60&&self.y>HORIZON-15;i++)yield 1;}self.state=STATE.FLOCK;self._flockPhase=rand(0,Math.PI*2);for(let i=0,dur=randInt(400,900);i<dur;i++){const t=(self._tick+i)*0.01+self._flockPhase;let fx=Math.cos(t)*self.brain.speed*0.35,fy=Math.sin(t*0.6)*self.brain.speed*0.12;const near=getAnimals().filter(a=>a!==self&&a.type==='bird'&&a.state===STATE.FLOCK&&dist(self,a)<50);if(near.length){let cx=0,cy=0;for(const a of near){cx+=a.x-self.x;cy+=a.y;}fx+=(cx/near.length)*0.001;fy+=(cy/near.length-self.y)*0.001;}self.targetVx=fx;self.targetVy=fy;yield 1;}}
+  else if(choice<0.6){if(!onGround){self.state=STATE.FLOCK;const landY=HORIZON+rand(5,60);for(let i=0;i<90&&self.y<landY-2;i++){const dx=rand(-20,20),dy=landY-self.y,d=Math.hypot(dx,dy)||1;self.targetVx=(dx/d)*self.brain.speed*0.3;self.targetVy=(dy/d)*self.brain.speed*0.25;yield 1;}}self.state=STATE.PERCH;self.targetVx=0;self.targetVy=0;yield randInt(300,800);}
   else if(choice<0.8){self.state=STATE.WALK_GROUND;self.y=clamp(self.y,HORIZON+5,WORLD_H-10);for(let h=0,hops=randInt(3,8);h<hops;h++){self.targetVx=rand(-0.15,0.15);self.targetVy=rand(-0.05,0.05);yield randInt(8,15);self.targetVx=0;self.targetVy=0;yield randInt(20,60);}}
   else{birdScatterEffect(self.x,self.y);self.state=STATE.FLOCK;self.targetVx=rand(-0.15,0.15);self.targetVy=-self.brain.speed*0.6;for(let i=0;i<50&&self.y>HORIZON-20;i++)yield 1;yield randInt(400,1000);}
 }
@@ -681,7 +679,6 @@ class Animal {
     // Physics
     const acc=this.state===STATE.FLEE?0.1:0.025;this.vx+=(this.targetVx-this.vx)*acc;this.vy+=(this.targetVy-this.vy)*acc;
     if(this.state===STATE.WANDER||this.state===STATE.GRAZE||this.state===STATE.WALK_GROUND){this.vx+=(pcgHash(globalTick,Math.floor(this.seed*1000),1)-0.5)*0.012;this.vy+=(pcgHash(globalTick,Math.floor(this.seed*1000),2)-0.5)*0.004;}
-    const nearSeam = this.x < 20 || this.x > WORLD_W - 20;
     // Herding (elephants follow nearest mate in single file; others pull toward center)
     if(this.brain.herd&&this.alive&&!this.brain.flying&&this.state!==STATE.FLEE&&this.state!==STATE.CHASE){
       let hdx=0,hcy=0,hn=0;
@@ -694,24 +691,18 @@ class Animal {
           if (d < 60 && d > 8 && d < nd) { nearest = o; nd = d; }
         }
         if (nearest) {
-          // Follow behind: aim for a point behind the leader
-          const behind = wrapDeltaX(nearest.x - this.x);
-          hdx = behind - Math.sign(behind) * 12; // stay 12px behind
+          const behind = nearest.x - this.x;
+          hdx = behind - Math.sign(behind) * 12;
           hcy = nearest.y; hn = 1;
         }
       } else {
-        for(const o of animals){if(o===this||!o.alive||o.type!==this.type)continue;if(dist(this,o)<100){hdx+=wrapDeltaX(o.x-this.x);hcy+=o.y;hn++;}}
+        for(const o of animals){if(o===this||!o.alive||o.type!==this.type)continue;if(dist(this,o)<100){hdx+=o.x-this.x;hcy+=o.y;hn++;}}
       }
       if(hn>0){
         const cdx=hdx/hn,cdy=hcy/hn-this.y,d=Math.hypot(cdx,cdy);
         if(d>15){
           const pull=this.brain.herdDesire*0.003*Math.min(d/50,1);
-          const pullX = (cdx/d)*pull, pullY = (cdy/d)*pull*0.3;
-          // Near seam: only apply herd pull if it agrees with current velocity direction
-          // This prevents flip-flopping at the wrap boundary
-          if (!nearSeam || Math.sign(pullX) === Math.sign(this.vx) || Math.abs(this.vx) < 0.005) {
-            this.vx += pullX; this.vy += pullY;
-          }
+          this.vx += (cdx/d)*pull; this.vy += (cdy/d)*pull*0.3;
         }
       }
     }
@@ -741,36 +732,35 @@ class Animal {
         if(o===this||!o.alive)continue;
         if(o.brain.flying&&o.state!==STATE.PERCH&&o.state!==STATE.WALK_GROUND)continue;
         if(this.state===STATE.CHASE&&this.memory.huntTarget===o)continue;
-        const dx=wrapDeltaX(this.x-o.x),dy=this.y-o.y,d=Math.hypot(dx,dy);
+        const dx=this.x-o.x,dy=this.y-o.y,d=Math.hypot(dx,dy);
         if(d<ps&&d>0.1){const push=(ps-d)/ps*pushBase;if(isFlee){this.targetVx+=(dx/d)*push;this.targetVy+=(dy/d)*push*0.3;}else{this.vx+=(dx/d)*push;this.vy+=(dy/d)*push*0.3;}}
       }
     }
     // Waterhole avoidance
-    if(!this.brain.flying&&this.state!==STATE.DRINK){const wdx=wrapDeltaX(this.x-waterHole.x),wx=wdx/(waterHole.rx+3),wy=(this.y-waterHole.y)/(waterHole.ry+3),wd=wx*wx+wy*wy;if(wd<1){const d=Math.sqrt(wd)||0.1;this.vx+=(wx/d)*(1-d)*0.1*waterHole.rx;this.vy+=(wy/d)*(1-d)*0.1*waterHole.ry;}}
+    if(!this.brain.flying&&this.state!==STATE.DRINK){const wdx=this.x-waterHole.x,wx=wdx/(waterHole.rx+3),wy=(this.y-waterHole.y)/(waterHole.ry+3),wd=wx*wx+wy*wy;if(wd<1){const d=Math.sqrt(wd)||0.1;this.vx+=(wx/d)*(1-d)*0.1*waterHole.rx;this.vy+=(wy/d)*(1-d)*0.1*waterHole.ry;}}
     // Vertical damping to prevent floating
     if(!this.brain.flying||this.state===STATE.PERCH||this.state===STATE.WALK_GROUND){this.vy*=0.88;const yDrift=this.y-this.homeY;if(Math.abs(yDrift)>15&&this.state!==STATE.FLEE&&this.state!==STATE.APPROACH_WATER&&this.state!==STATE.DRINK)this.vy-=yDrift*0.001;}
     this.x+=this.vx;this.y+=this.vy;if(!this.brain.flying||this.state===STATE.WALK_GROUND)this._walkDist+=Math.hypot(this.vx,this.vy);
-    // Wrap X, soft-clamp Y
-    if(this.brain.flying&&this.state!==STATE.PERCH&&this.state!==STATE.WALK_GROUND){this.x=wrapX(this.x);if(this.y<15){this.vy+=0.02;this.targetVy=Math.max(this.targetVy,0);}if(this.y>HORIZON-3){this.vy-=0.02;this.targetVy=Math.min(this.targetVy,0);}this.y=clamp(this.y,10,HORIZON);}else{this.x=wrapX(this.x);if(this.y<HORIZON+3){this.vy+=0.01;this.targetVy+=0.003;}else if(this.y>WORLD_H-15){this.vy-=0.01;this.targetVy-=0.003;}this.y=clamp(this.y,HORIZON+1,WORLD_H-5);}
+    // Boundary avoidance (boids-like): steer away from invisible walls
+    const boundaryMargin = 40;
+    const boundaryForce = 0.015;
+    if (this.x < boundaryMargin) { this.vx += boundaryForce * (1 - this.x / boundaryMargin); this.targetVx = Math.max(this.targetVx, 0.01); }
+    if (this.x > WORLD_W - boundaryMargin) { this.vx -= boundaryForce * (1 - (WORLD_W - this.x) / boundaryMargin); this.targetVx = Math.min(this.targetVx, -0.01); }
+    // Clamp position to world bounds
+    this.x = clamp(this.x, 5, WORLD_W - 5);
+    // Y bounds
+    if(this.brain.flying&&this.state!==STATE.PERCH&&this.state!==STATE.WALK_GROUND){
+      if(this.y<15){this.vy+=0.02;this.targetVy=Math.max(this.targetVy,0);}
+      if(this.y>HORIZON-3){this.vy-=0.02;this.targetVy=Math.min(this.targetVy,0);}
+      this.y=clamp(this.y,10,HORIZON);
+    }else{
+      if(this.y<HORIZON+3){this.vy+=0.01;this.targetVy+=0.003;}
+      else if(this.y>WORLD_H-15){this.vy-=0.01;this.targetVy-=0.003;}
+      this.y=clamp(this.y,HORIZON+1,WORLD_H-5);
+    }
     if(Math.abs(this.vx)>0.02)this.facing=this.vx>0?1:-1;
-    // Seam anti-oscillation: lock velocity direction when crossing the boundary
-    if (nearSeam) {
-      this.homeX = this.x;
-      if (!this._seamLock && Math.abs(this.vx) > 0.01) {
-        this._seamLock = Math.sign(this.vx); // lock direction
-        this._seamTimer = 90; // hold for 3 seconds
-      }
-    }
-    if (this._seamTimer > 0) {
-      this._seamTimer--;
-      // Force velocity to maintain the locked direction
-      if (Math.sign(this.vx) !== this._seamLock && Math.abs(this.vx) > 0.005) {
-        this.vx = Math.abs(this.vx) * this._seamLock;
-        this.targetVx = Math.abs(this.targetVx) * this._seamLock;
-      }
-      if (this._seamTimer <= 0) this._seamLock = 0;
-    }
-    if (Math.abs(wrapDeltaX(this.x - this.homeX)) > WORLD_W * 0.15) {
+    // Update home position
+    if (Math.abs(this.x - this.homeX) > WORLD_W * 0.15) {
       this.homeX = this.x;
     }
     // Safety: fix NaN/invalid positions
@@ -962,7 +952,7 @@ class Animal {
     if (this.state === STATE.IDLE && this.frame % 200 < 80) {
       const nearGiraffe = animals.find(a => a !== this && a.alive && a.type === 'giraffe' && dist(this, a) < 20);
       if (nearGiraffe) {
-        neckLean = wrapDeltaX(nearGiraffe.x - this.x) > 0 ? -1 : 1; // lean toward
+        neckLean = nearGiraffe.x - this.x > 0 ? -1 : 1; // lean toward
         hd = -2; // raise head slightly
       }
     }
@@ -1352,7 +1342,7 @@ function drawWaterHole(tick, al) {
   const moon = !sun ? getMoonPos(simTime) : null;
   const lightSource = sun || moon;
   const lightColor = sun ? getSunColor(simTime) : [180, 200, 230];
-  const lightRefX = lightSource ? clamp(wrapDeltaX(lightSource.x - waterHole.x) / wrx * 0.3, -0.7, 0.7) : 0;
+  const lightRefX = lightSource ? clamp((lightSource.x - waterHole.x) / wrx * 0.3, -0.7, 0.7) : 0;
 
   // Water body
   const wc = [Math.round(55*a), Math.round(75*a), Math.round(105*a)];
@@ -1420,7 +1410,10 @@ const clouds=[];for(let i=0;i<6;i++){
 function drawClouds(){const a=getAmbient(simTime);if(a<0.1)return;const sun=getSunPos(simTime),t=simTime;let cr,cg,cb;if(t<7||t>17.5){cr=240;cg=180;cb=140;}else if(t>10&&t<15){cr=235;cg=235;cb=240;}else{cr=240;cg=220;cb=210;}for(const c of clouds){
     // Higher clouds drift faster (altitude parallax)
     const altFactor = 1 + (1 - c.y / (HORIZON * 0.35)) * 0.5;
-    c.x=wrapX(c.x+c.speed*altFactor);const sx=worldToScreenX(c.x),sy=Math.floor(c.y-VP.y);if(sx<-60||sx>PW+60||sy<-20||sy>PH)continue;if(sun){ctx.fillStyle=`rgba(0,0,0,${0.04*a})`;ctx.fillRect(sx+Math.round(wrapDeltaX(c.x-sun.x)*0.04),HORIZON-VP.y+5,c.w,3);}for(const p of c.puffs){const px=sx+p.dx,py=sy+p.dy;
+    c.x += c.speed * altFactor;
+    // Wrap clouds when they exit the world
+    if (c.x > WORLD_W + 30) c.x = -30;
+    const sx=worldToScreenX(c.x),sy=Math.floor(c.y-VP.y);if(sx<-60||sx>PW+60||sy<-20||sy>PH)continue;if(sun){ctx.fillStyle=`rgba(0,0,0,${0.04*a})`;ctx.fillRect(sx+Math.round((c.x-sun.x)*0.04),HORIZON-VP.y+5,c.w,3);}for(const p of c.puffs){const px=sx+p.dx,py=sy+p.dy;
       // Underside shadow
       ctx.fillStyle=`rgba(${Math.round(cr*0.65)},${Math.round(cg*0.6)},${Math.round(cb*0.55)},${0.25*a})`;
       ctx.fillRect(px,py+Math.floor(p.h*0.5),p.w,Math.ceil(p.h*0.5));
@@ -1517,7 +1510,7 @@ function drawRimLight(an) {
   if (intensity <= 0.1) return;
   const sx = worldToScreenX(an.x), sy = Math.floor(an.y - VP.y);
   if (sx < -40 || sx > PW + 40 || sy < -20 || sy > PH + 20) return;
-  const sunSide = wrapDeltaX(sun.x - an.x) > 0 ? 1 : -1;
+  const sunSide = sun.x - an.x > 0 ? 1 : -1;
   const h = an.type === 'elephant' ? 8 : an.type === 'giraffe' ? 14 : 5;
   const alpha = intensity * 0.15;
   ctx.fillStyle = `rgba(255,180,80,${alpha})`;
@@ -1557,10 +1550,10 @@ function drawShadow(an) {
   let sunElev = 1; // 0=horizon, 1=zenith
   if (sun) {
     sunElev = Math.sin(sun.angle); // 0 at horizon, 1 at noon
-    sdx = clamp(Math.round(wrapDeltaX(an.x - sun.x) * 0.08), -20, 20);
+    sdx = clamp(Math.round((an.x - sun.x) * 0.08), -20, 20);
     shadowAlpha = 0.1 * a;
   } else if (moon) {
-    sdx = clamp(Math.round(wrapDeltaX(an.x - moon.x) * 0.06), -12, 12);
+    sdx = clamp(Math.round((an.x - moon.x) * 0.06), -12, 12);
     shadowAlpha = 0.04;
     sunElev = 0.5;
   } else {
@@ -1909,7 +1902,7 @@ function drawEyeShine(){const a=getAmbient(simTime);if(a>0.25||simTime>6&&simTim
 
 // ── Dust Devil ──
 const dustDevil={active:false,x:0,y:0,vx:0,life:0,maxLife:0,size:0};
-function updateDustDevil(tk){if(!dustDevil.active){if(CFG.dustDevilFreq<=0)return;if(getAmbient(simTime)>0.5&&pcgHash(tk&0x3FF,0,5555)<CFG.dustDevilFreq){dustDevil.active=true;dustDevil.x=wrapX(VP.x-40);dustDevil.y=HORIZON+rand(20,70);dustDevil.vx=rand(0.3,0.6);dustDevil.size=rand(4,8);dustDevil.maxLife=randInt(300,600);dustDevil.life=dustDevil.maxLife;showNarration('A dust devil crosses the plain');}return;}dustDevil.x=wrapX(dustDevil.x+dustDevil.vx);dustDevil.y+=(pcgHash(tk,1,6666)-0.5)*0.3;dustDevil.life--;if(dustDevil.life<=0){dustDevil.active=false;return;}for(const a of animals){if(!a.alive||a.brain.flying)continue;const d=dist(a,dustDevil);if(d<25){a.memory.fear=Math.min(100,a.memory.fear+1);const dir=dirFrom(dustDevil,a);a.vx+=dir.dx*0.02;a.vy+=dir.dy*0.01;}}}
+function updateDustDevil(tk){if(!dustDevil.active){if(CFG.dustDevilFreq<=0)return;if(getAmbient(simTime)>0.5&&pcgHash(tk&0x3FF,0,5555)<CFG.dustDevilFreq){dustDevil.active=true;dustDevil.x=clamp(VP.x-40,50,WORLD_W-50);dustDevil.y=HORIZON+rand(20,70);dustDevil.vx=rand(0.3,0.6);dustDevil.size=rand(4,8);dustDevil.maxLife=randInt(300,600);dustDevil.life=dustDevil.maxLife;showNarration('A dust devil crosses the plain');}return;}dustDevil.x+=dustDevil.vx;dustDevil.y+=(pcgHash(tk,1,6666)-0.5)*0.3;dustDevil.life--;if(dustDevil.life<=0||dustDevil.x<20||dustDevil.x>WORLD_W-20){dustDevil.active=false;return;}for(const a of animals){if(!a.alive||a.brain.flying)continue;const d=dist(a,dustDevil);if(d<25){a.memory.fear=Math.min(100,a.memory.fear+1);const dir=dirFrom(dustDevil,a);a.vx+=dir.dx*0.02;a.vy+=dir.dy*0.01;}}}
 function drawDustDevil(tk){if(!dustDevil.active)return;const sx=worldToScreenX(dustDevil.x),sy=Math.floor(dustDevil.y-VP.y);if(sx<-20||sx>PW+20)return;const a=getAmbient(simTime),fade=Math.min(dustDevil.life/60,(dustDevil.maxLife-dustDevil.life)/60,1);for(let i=0;i<15;i++){const angle=tk*0.12+i*0.45,r=dustDevil.size*(0.3+(i/15)*0.7),py=sy-i*2,px=sx+Math.cos(angle)*r;if(py<0||py>=PH||px<0||px>=PW)continue;const al=fade*0.25*a*(1-i/18);ctx.fillStyle=`rgba(160,140,100,${al})`;ctx.fillRect(Math.floor(px),Math.floor(py),1,1);ctx.fillStyle=`rgba(140,125,85,${al*0.6})`;ctx.fillRect(Math.floor(px+Math.sin(angle)*0.8),Math.floor(py),1,1);}ctx.fillStyle=`rgba(150,135,95,${fade*0.12*a})`;ctx.fillRect(sx-dustDevil.size,sy-1,dustDevil.size*2,3);}
 const shootingStar={active:false,x:0,y:0,vx:0,vy:0,life:0,trail:[]};
 // Distant lightning: occasional flash on the horizon
@@ -2188,7 +2181,7 @@ function detectEvents(tk){if(tk-lastNarrationTick<600)return;const h=Math.floor(
 
 // ── Config Menu ──
 function createConfigMenu(){const ov=document.createElement('div');ov.id='config-overlay';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100;display:none;align-items:center;justify-content:center;';const dl=document.createElement('div');dl.style.cssText='background:#1a1a1a;border:1px solid #444;border-radius:8px;padding:16px 20px;color:#ccc;font:12px/1.8 monospace;min-width:280px;max-width:340px;max-height:80vh;overflow-y:auto;';const ti=document.createElement('div');ti.style.cssText='font-size:14px;font-weight:bold;margin-bottom:10px;color:#e8dcc0;';ti.textContent='Settings';dl.appendChild(ti);
-addSlider(dl,'World Width','cfg-ww',400,2400,CFG.worldW,100,v=>{CFG.worldW=v;regenerateWorld();for(const a of animals){a.x=wrapX(a.x);a.homeX=wrapX(a.homeX);}});
+addSlider(dl,'World Width','cfg-ww',400,2400,CFG.worldW,100,v=>{CFG.worldW=v;regenerateWorld();for(const a of animals){a.x=clamp(a.x,50,WORLD_W-50);a.homeX=clamp(a.homeX,50,WORLD_W-50);}});
 addSlider(dl,'Dust Devils','cfg-dd',0,10,Math.round(CFG.dustDevilFreq*20000),1,v=>{CFG.dustDevilFreq=v/20000;},v=>v===0?'Off':v<=3?'Rare':v<=6?'Normal':'Frequent');
 const sep=document.createElement('div');sep.style.cssText='border-top:1px solid #333;margin:8px 0;';dl.appendChild(sep);const at=document.createElement('div');at.style.cssText='font-size:11px;color:#a88040;margin-bottom:4px;';at.textContent='Animal Counts';dl.appendChild(at);
 for(const type of['zebra','gazelle','wildebeest','warthog','lion','elephant','giraffe','bird'])addSlider(dl,type.charAt(0).toUpperCase()+type.slice(1),'cfg-'+type,0,15,CFG.animalCounts[type],1,v=>{CFG.animalCounts[type]=v;syncAnimalCounts();});
@@ -2277,7 +2270,7 @@ function sleepShift(tick) {
 function render(){ try {
   const now=performance.now(),frameDt=now-lastFrameTime;lastFrameTime=now;updateTime();applyInput();
   logicAccumulator+=frameDt;let steps=0;while(logicAccumulator>=LOGIC_DT&&steps<4){logicStep();logicAccumulator-=LOGIC_DT;steps++;}if(logicAccumulator>LOGIC_DT*4)logicAccumulator=0;
-  const timeDelta=Math.abs(simTime-lastBgTime),vpDelta=Math.abs(wrapDeltaX(VP.x-lastBgVpx));if(timeDelta>0.008||timeDelta>23.9||vpDelta>0.5||bgDirty)renderBg();
+  const timeDelta=Math.abs(simTime-lastBgTime),vpDelta=Math.abs(VP.x-lastBgVpx);if(timeDelta>0.008||timeDelta>23.9||vpDelta>0.5||bgDirty)renderBg();
   ctx.drawImage(bgCanvas,0,0);
   // Moonlight wash on ground
   const mlAlpha = getMoonlightAlpha(simTime);
@@ -2340,7 +2333,8 @@ if (minimapEl) {
   const mmSetVP = (e) => {
     const rect = minimapEl.getBoundingClientRect();
     const mx = (e.clientX - rect.left) / rect.width;
-    VP.x = wrapX(mx * WORLD_W - PW / 2);
+    VP.x = mx * WORLD_W - PW / 2;
+    clampVP();
     bgDirty = true;
   };
   minimapEl.addEventListener('mousedown', (e) => { e.stopPropagation(); mmDrag = true; mmSetVP(e); });
