@@ -1,0 +1,18 @@
+services:
+  savannah:
+    image: ghcr.io/morgaesis/savannah:main
+    restart: unless-stopped
+    ports:
+      - "4680:80"
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  watchtower:
+    image: containrrr/watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WATCHTOWER_POLL_INTERVAL=300
+      - WATCHTOWER_LABEL_ENABLE=true
+    command: --label-enable
