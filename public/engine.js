@@ -172,6 +172,17 @@ window._skipTime = function(hour) {
   drawTimeDial();
 };
 
+window._setTimeToNow = function() {
+  const now = new Date();
+  window._skipTime(now.getHours() + now.getMinutes() / 60);
+};
+
+window._setDayLength = function(v) {
+  dayLengthSec = v;
+  document.getElementById('day-length').value = String(v);
+  localStorage.setItem('ss_dayLength', String(v));
+};
+
 // Circular time dial
 const timeDial = document.getElementById('time-dial');
 const tdCtx = timeDial ? timeDial.getContext('2d') : null;
@@ -591,7 +602,7 @@ function* goToWater(self) {
   }
 }
 
-function* herdDrift(self, getAnimals) { if(!self.brain.herd){yield 60;return;} const mates=getAnimals().filter(a=>a!==self&&a.type===self.type&&a.alive); if(!mates.length){yield 60;return;} self.state=STATE.WANDER; let cdx=0,cy=0; for(const m of mates){cdx+=m.x-self.x;cy+=m.y;} const cx=clamp(self.x+cdx/mates.length,50,WORLD_W-50); cy/=mates.length; const dir=dirFrom(self,{x:cx,y:cy}); if(dir.d>30){self.targetVx=dir.dx*self.brain.speed*0.4+rand(-0.02,0.02);self.targetVy=dir.dy*self.brain.speed*0.15;yield randInt(100,300);}else yield randInt(80,200); }
+function* herdDrift(self, getAnimals) { if(!self.brain.herd){yield 60;return;} const mates=getAnimals().filter(a=>a!==self&&a.type===self.type&&a.alive); if(!mates.length){yield 60;return;} self.state=STATE.WANDER; let cdx=0,cy=0; for(const m of mates){cdx+=m.x-self.x;cy+=m.y;} const cx=clamp(self.x+cdx/mates.length,50,WORLD_W-50); cy/=mates.length; const dir=dirFrom(self,{x:cx,y:cy}); if(dir.d>30){self.targetVx=dir.dx*self.brain.speed*0.4+rand(-0.02,0.02);self.targetVy=dir.dy*self.brain.speed*0.35;yield randInt(100,300);}else yield randInt(80,200); }
 
 function* lionHunt(self, getAnimals) {
   self.state=STATE.HUNT; let target=null,nd=Infinity; for(const o of getAnimals()){if(o===self||!o.alive||!o.brain.prey)continue;const d=dist(self,o);if(d<self.brain.huntRange&&d<nd){target=o;nd=d;}} if(!target){self.state=STATE.REST;yield randInt(600,1500);return;}
@@ -692,7 +703,7 @@ class Animal {
     this._yieldRemaining--;if(this._yieldRemaining<=0){const result=this._fiber.next();this._yieldRemaining=(typeof result.value==='number')?result.value:60;if(result.done){this._fiber=behaviorLoop(this,()=>animals);this._yieldRemaining=60;}}
     // Physics
     const acc=this.state===STATE.FLEE?0.1:0.025;this.vx+=(this.targetVx-this.vx)*acc;this.vy+=(this.targetVy-this.vy)*acc;
-    if(this.state===STATE.WANDER||this.state===STATE.GRAZE||this.state===STATE.WALK_GROUND){this.vx+=(pcgHash(globalTick,Math.floor(this.seed*1000),1)-0.5)*0.012;this.vy+=(pcgHash(globalTick,Math.floor(this.seed*1000),2)-0.5)*0.004;}
+    if(this.state===STATE.WANDER||this.state===STATE.GRAZE||this.state===STATE.WALK_GROUND){this.vx+=(pcgHash(globalTick,Math.floor(this.seed*1000),1)-0.5)*0.012;this.vy+=(pcgHash(globalTick,Math.floor(this.seed*1000),2)-0.5)*0.01;}
     // Herding (elephants follow nearest mate in single file; others pull toward center)
     if(this.brain.herd&&this.alive&&!this.brain.flying&&this.state!==STATE.FLEE&&this.state!==STATE.CHASE){
       let hdx=0,hcy=0,hn=0;
@@ -716,7 +727,7 @@ class Animal {
         const cdx=hdx/hn,cdy=hcy/hn-this.y,d=Math.hypot(cdx,cdy);
         if(d>15){
           const pull=this.brain.herdDesire*0.003*Math.min(d/50,1);
-          this.vx += (cdx/d)*pull; this.vy += (cdy/d)*pull*0.3;
+          this.vx += (cdx/d)*pull; this.vy += (cdy/d)*pull*0.5;
         }
       }
     }
@@ -753,7 +764,9 @@ class Animal {
     // Waterhole avoidance
     if(!this.brain.flying&&this.state!==STATE.DRINK){const wdx=this.x-waterHole.x,wx=wdx/(waterHole.rx+3),wy=(this.y-waterHole.y)/(waterHole.ry+3),wd=wx*wx+wy*wy;if(wd<1){const d=Math.sqrt(wd)||0.1;this.vx+=(wx/d)*(1-d)*0.1*waterHole.rx;this.vy+=(wy/d)*(1-d)*0.1*waterHole.ry;}}
     // Vertical damping to prevent floating
-    if(!this.brain.flying||this.state===STATE.PERCH||this.state===STATE.WALK_GROUND){this.vy*=0.88;const yDrift=this.y-this.homeY;if(Math.abs(yDrift)>15&&this.state!==STATE.FLEE&&this.state!==STATE.APPROACH_WATER&&this.state!==STATE.DRINK)this.vy-=yDrift*0.001;}
+    if(!this.brain.flying||this.state===STATE.PERCH||this.state===STATE.WALK_GROUND){this.vy*=0.92;const yDrift=this.y-this.homeY;if(Math.abs(yDrift)>15&&this.state!==STATE.FLEE&&this.state!==STATE.APPROACH_WATER&&this.state!==STATE.DRINK)this.vy-=yDrift*0.0008;}
+    // Horizontal separation to prevent vertical line stacking
+    if(this.brain.herd&&!this.brain.flying&&this.state!==STATE.FLEE&&this.state!==STATE.CHASE){for(const o of animals){if(o===this||!o.alive||o.type!==this.type)continue;const dx=this.x-o.x,dy=this.y-o.y,absDx=Math.abs(dx);if(absDx<8&&Math.abs(dy)<40){const push=(8-absDx)/8*0.01;this.vx+=push*(dx<0?-1:1);}}}
     this.x+=this.vx;this.y+=this.vy;if(!this.brain.flying||this.state===STATE.WALK_GROUND)this._walkDist+=Math.hypot(this.vx,this.vy);
     // Boundary avoidance (boids-like): steer away from invisible walls
     const boundaryMargin = 50;
@@ -2411,16 +2424,13 @@ function updateMinimap() {
   }
 
   // Viewport indicator (white rectangle outline)
-  // Viewport indicator (handles wrap)
-  const vpX = Math.floor(((VP.x % WORLD_W) + WORLD_W) % WORLD_W / WORLD_W * MM_W);
+  const vpX = Math.floor(VP.x / WORLD_W * MM_W);
   const vpW = Math.max(2, Math.floor(PW / WORLD_W * MM_W));
+  const vpY = Math.floor((VP.y - (HORIZON - PH * 0.52)) / (WORLD_H - PH) * (MM_H - groundY)) + groundY;
+  const vpH = Math.max(2, Math.floor(PH / (WORLD_H) * MM_H));
   mmCtx.strokeStyle = `rgba(255,255,255,${0.3 + amb * 0.2})`;
   mmCtx.lineWidth = 0.5;
-  mmCtx.strokeRect(vpX, 0, vpW, MM_H);
-  // If viewport wraps past right edge, draw second rect at left
-  if (vpX + vpW > MM_W) {
-    mmCtx.strokeRect(0, 0, vpX + vpW - MM_W, MM_H);
-  }
+  mmCtx.strokeRect(vpX, vpY, vpW, vpH);
 }
 
 // Pre-rendered window vignette overlay
